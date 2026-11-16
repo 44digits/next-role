@@ -63,8 +63,5 @@ urlpatterns = [
         name="quick_interaction",
     ),
     path("documents/search/", views.document_search, name="document_search"),
-    path("tasks/", views.task_list, name="task_list"),
-    path("tasks/new/", views.task_create, name="task_create"),
-    path("tasks/<int:pk>/toggle/", views.task_toggle, name="task_toggle"),
     path("reports/", views.reports, name="reports"),
 ]

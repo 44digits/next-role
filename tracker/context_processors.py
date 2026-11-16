@@ -1,13 +1,13 @@
 from django.utils import timezone
 
-from .forms import QuickInteractionForm
+from .forms import InteractionForm
 from .models import Job
 
 
 def quick_interaction(request):
     if not request.user.is_authenticated:
         return {}
-    form = QuickInteractionForm(
+    form = InteractionForm(
         initial={"occurred_at": timezone.localtime().strftime("%Y-%m-%dT%H:%M")}
     )
     form.fields["job"].queryset = (

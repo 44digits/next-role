@@ -9,36 +9,6 @@
     </div>
     <a class="button primary" href="{% url 'job_create' %}">Add job</a>
   </div>
-  <div class="content-grid">
-    <section class="panel task-widget">
-      <div class="section-heading"><h2>Overdue tasks</h2><a href="{% url 'task_list' %}">View all</a></div>
-      <ul class="item-list">
-        {% for task in overdue_tasks|slice:":5" %}
-          <li>
-            <span><strong>{{ task.title }}</strong><small>Due {{ task.due_at|date:"Y-m-d H:i" }}</small></span>
-            <form method="post" action="{% url 'task_toggle' task.pk %}">
-              {% csrf_token %}<input type="hidden" name="next" value="{% url 'board' %}">
-              <button class="button small" type="submit">Complete</button>
-            </form>
-          </li>
-        {% empty %}<li class="muted">No overdue tasks.</li>{% endfor %}
-      </ul>
-    </section>
-    <section class="panel task-widget">
-      <div class="section-heading"><h2>Upcoming tasks</h2><a class="button small" href="{% url 'task_create' %}">Add task</a></div>
-      <ul class="item-list">
-        {% for task in upcoming_tasks|slice:":5" %}
-          <li>
-            <span><strong>{{ task.title }}</strong><small>Due {{ task.due_at|date:"Y-m-d H:i" }}</small></span>
-            <form method="post" action="{% url 'task_toggle' task.pk %}">
-              {% csrf_token %}<input type="hidden" name="next" value="{% url 'board' %}">
-              <button class="button small" type="submit">Complete</button>
-            </form>
-          </li>
-        {% empty %}<li class="muted">No upcoming tasks.</li>{% endfor %}
-      </ul>
-    </section>
-  </div>
   <div class="kanban">
     {% for column in columns %}
       <section class="kanban-column" data-status-column="{{ column.key }}">

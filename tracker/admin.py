@@ -10,7 +10,6 @@ from .models import (
     JobDocument,
     JobLink,
     JobStatusHistory,
-    Task,
 )
 
 
@@ -71,13 +70,6 @@ class JobDocumentAdmin(admin.ModelAdmin):
         "job__company__name",
         "extracted_text",
     ]
-
-
-@admin.register(Task)
-class TaskAdmin(admin.ModelAdmin):
-    list_display = ["title", "contact", "job", "due_at", "completed_at"]
-    list_filter = ["completed_at"]
-    search_fields = ["title", "contact__first_name", "contact__last_name", "job__title"]
 
 
 admin.site.register([CompanyLink, JobLink, JobStatusHistory])

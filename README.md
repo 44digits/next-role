@@ -1,7 +1,7 @@
 # Next Role
 
 A private, single-user job application tracker for opportunities, company contacts,
-application stages, related documents, and follow-up reporting.
+application stages, related documents, and application/outreach reporting.
 
 ## Features
 
@@ -11,8 +11,6 @@ application stages, related documents, and follow-up reporting.
   associated with companies and optionally with multiple jobs.
 - A filterable contact directory and global quick logger for outbound/inbound
   email, LinkedIn messages, phone calls, interviews, and other interactions.
-- Follow-up tasks associated with a contact, a job, or both, with due dates,
-  completion tracking, and overdue/upcoming task views.
 - Multi-file PDF uploads attached to jobs (job descriptions, resumes, applications,
   cover letters, or other documents), limited to 10 MB per file. Extracted PDF
   text is searchable and documents can be previewed in the browser.
@@ -99,7 +97,7 @@ There is no public registration flow. Create the initial user with Django's
 Each job belongs to a company and may have zero or more contacts from that
 company. A contact may be related to multiple jobs. Status transitions are
 preserved in history. Interactions belong to a contact and can optionally be
-linked to a job, provided that contact is associated with that job. Tasks may
-link to a contact, a job, or both. Each contact's last-contacted date is
-maintained from its interaction history. Uploaded PDFs and extracted text are
-stored separately so a future object-storage backend can replace local files.
+linked to a job, provided that contact is associated with that job. Each
+contact's last-contacted date is maintained from its interaction history.
+Uploaded PDFs and extracted text are stored separately so a future
+object-storage backend can replace local files.

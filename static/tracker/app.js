@@ -2,8 +2,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const dialog = document.querySelector("#quick-interaction-dialog");
   const contactSelect = dialog?.querySelector("[name=contact]");
   const jobSelect = dialog?.querySelector("[data-dependent-job]");
-  const followUpToggle = dialog?.querySelector("[name=create_follow_up]");
-  const followUpFields = dialog?.querySelector("[data-follow-up-fields]");
 
   document.querySelectorAll("[data-open-interaction]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -31,14 +29,6 @@ document.addEventListener("DOMContentLoaded", () => {
   };
   contactSelect?.addEventListener("change", filterJobs);
   filterJobs();
-
-  const updateFollowUp = () => {
-    if (followUpFields && followUpToggle) {
-      followUpFields.hidden = !followUpToggle.checked;
-    }
-  };
-  followUpToggle?.addEventListener("change", updateFollowUp);
-  updateFollowUp();
 
   let draggedCard = null;
   document.querySelectorAll("[data-job-card]").forEach((card) => {

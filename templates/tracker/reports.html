@@ -3,8 +3,7 @@
 {% block title %}Reports - Next Role{% endblock %}
 {% block content %}
   <div class="page-heading">
-    <div><h1>Reports</h1><p>Application progress, outreach, and follow-up analytics.</p></div>
-    <a class="button" href="{% url 'task_list' %}">Task center</a>
+    <div><h1>Reports</h1><p>Application progress and outreach analytics.</p></div>
   </div>
   <section class="panel">
     <h2>Application activity</h2>
@@ -81,14 +80,4 @@
       {% endfor %}
     </div>
   </section>
-  <div class="content-grid">
-    <section class="panel task-widget">
-      <div class="section-heading"><h2>Overdue tasks</h2><a href="{% url 'task_list' %}">View all</a></div>
-      {% include "tracker/task_items.html" with tasks=overdue_tasks %}
-    </section>
-    <section class="panel task-widget">
-      <div class="section-heading"><h2>Upcoming tasks</h2><a href="{% url 'task_create' %}">Add task</a></div>
-      {% include "tracker/task_items.html" with tasks=upcoming_tasks %}
-    </section>
-  </div>
 {% endblock %}

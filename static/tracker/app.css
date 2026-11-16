@@ -486,22 +486,6 @@ th {
   width: auto;
 }
 
-.follow-up-fields {
-  padding: 0.8rem;
-  margin-bottom: 1rem;
-  background: #f2f6f8;
-  border-radius: 0.55rem;
-}
-
-.follow-up-fields[hidden] {
-  display: none;
-}
-
-.follow-up-fields p:last-child {
-  margin-bottom: 0;
-}
-
-.task-widget small,
 .item-list small {
   display: block;
   margin-top: 0.2rem;

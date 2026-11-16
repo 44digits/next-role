@@ -15,7 +15,6 @@ from .models import (
     Job,
     JobContact,
     JobDocument,
-    Task,
 )
 
 
@@ -117,12 +116,6 @@ class JobStatusHistoryTests(TestCase):
         contact.refresh_from_db()
         self.assertEqual(contact.last_contacted_at, earlier.occurred_at)
 
-    def test_task_requires_job_or_contact(self):
-        task = Task(title="Follow up", due_at=timezone.now())
-
-        with self.assertRaises(ValidationError):
-            task.full_clean()
-
 
 class TrackerViewTests(TestCase):
     def setUp(self):
@@ -141,6 +134,8 @@ class TrackerViewTests(TestCase):
         response = self.client.get(reverse("board"))
         self.assertContains(response, "Engineer")
         self.assertContains(response, "Job found")
+        self.assertNotContains(response, "Overdue tasks")
+        self.assertNotContains(response, "Schedule a follow-up task")
 
         response = self.client.post(
             reverse("job_change_status", args=[self.job.pk]),
@@ -196,7 +191,7 @@ class TrackerViewTests(TestCase):
         contact.refresh_from_db()
         self.assertIsNotNone(contact.last_contacted_at)
 
-    def test_global_interaction_can_schedule_follow_up_task(self):
+    def test_global_interaction_records_interaction(self):
         contact = Contact.objects.create(
             company=self.company, first_name="Taylor", last_name="Recruiter"
         )
@@ -211,41 +206,13 @@ class TrackerViewTests(TestCase):
                 "direction": Interaction.Direction.OUTBOUND,
                 "occurred_at": timezone.localtime().strftime("%Y-%m-%dT%H:%M"),
                 "notes": "Follow-up sent.",
-                "create_follow_up": "on",
-                "task_title": "Check in next week",
-                "task_due_at": (timezone.localtime() + timedelta(days=7)).strftime(
-                    "%Y-%m-%dT%H:%M"
-                ),
-                "task_notes": "Ask about the application.",
             },
         )
 
         self.assertRedirects(response, reverse("board"))
         interaction = Interaction.objects.get()
-        task = Task.objects.get()
         self.assertEqual(interaction.contact, contact)
         self.assertEqual(interaction.job, self.job)
-        self.assertEqual(task.contact, contact)
-        self.assertEqual(task.job, self.job)
-        self.assertEqual(task.title, "Check in next week")
-
-    def test_task_completion_updates_task_center(self):
-        task = Task.objects.create(
-            title="Prepare questions",
-            contact=Contact.objects.create(
-                company=self.company, first_name="Morgan", last_name="Recruiter"
-            ),
-            due_at=timezone.now() + timedelta(days=1),
-        )
-
-        response = self.client.post(
-            reverse("task_toggle", args=[task.pk]),
-            {"next": reverse("task_list")},
-        )
-
-        self.assertRedirects(response, reverse("task_list"))
-        task.refresh_from_db()
-        self.assertIsNotNone(task.completed_at)
 
     def test_contact_directory_filters_by_role_and_inactivity(self):
         stale = Contact.objects.create(

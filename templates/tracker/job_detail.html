@@ -82,18 +82,4 @@
       {% empty %}<li class="muted">No activity recorded.</li>{% endfor %}
     </ul>
   </section>
-  <section class="panel">
-    <div class="section-heading"><h2>Tasks</h2><a class="button small" href="{% url 'task_create' %}?job={{ job.pk }}">Add task</a></div>
-    <ul class="item-list">
-      {% for task in open_tasks %}
-        <li>
-          <span><strong>{{ task.title }}</strong><small>Due {{ task.due_at|date:"Y-m-d H:i" }}</small></span>
-          <form method="post" action="{% url 'task_toggle' task.pk %}">
-            {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}">
-            <button class="button small" type="submit">Complete</button>
-          </form>
-        </li>
-      {% empty %}<li class="muted">No open tasks for this job.</li>{% endfor %}
-    </ul>
-  </section>
 {% endblock %}

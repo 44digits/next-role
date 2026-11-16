@@ -2,7 +2,6 @@ from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import transaction
 from django.db.models import Count, Q
 from django.db.models.functions import TruncWeek
 from django.http import FileResponse
@@ -19,11 +18,10 @@ from .forms import (
     ContactFilterForm,
     ContactForm,
     DocumentSearchForm,
+    InteractionForm,
     JobDocumentUploadForm,
     JobForm,
     JobLinkForm,
-    QuickInteractionForm,
-    TaskForm,
 )
 from .models import (
     Company,
@@ -34,7 +32,6 @@ from .models import (
     JobDocument,
     JobLink,
     JobStatusHistory,
-    Task,
 )
 
 
@@ -49,15 +46,12 @@ def board(request):
         {"key": status, "label": label, "jobs": jobs_by_status[status]}
         for status, label in Job.Status.choices
     ]
-    overdue_tasks, upcoming_tasks = _pending_tasks()
     return render(
         request,
         "tracker/board.html",
         {
             "columns": columns,
             "status_choices": Job.Status.choices,
-            "overdue_tasks": overdue_tasks,
-            "upcoming_tasks": upcoming_tasks,
         },
     )
 
@@ -77,7 +71,7 @@ def job_create(request):
 def job_detail(request, pk):
     job = get_object_or_404(
         Job.objects.select_related("company").prefetch_related(
-            "contacts", "links", "documents", "status_history", "interactions", "tasks"
+            "contacts", "links", "documents", "status_history", "interactions"
         ),
         pk=pk,
     )
@@ -104,7 +98,6 @@ def job_detail(request, pk):
         {
             "job": job,
             "activity": activity,
-            "open_tasks": job.tasks.filter(completed_at__isnull=True),
         },
     )
 
@@ -285,19 +278,9 @@ def interaction_create(request, contact_pk):
 def quick_interaction(request):
     if request.method != "POST":
         return redirect("board")
-    form = QuickInteractionForm(request.POST)
+    form = InteractionForm(request.POST)
     if form.is_valid():
-        with transaction.atomic():
-            interaction = form.save(commit=False)
-            interaction.save()
-            if form.cleaned_data["create_follow_up"]:
-                Task.objects.create(
-                    title=form.cleaned_data["task_title"],
-                    contact=interaction.contact,
-                    job=interaction.job,
-                    due_at=form.cleaned_data["task_due_at"],
-                    notes=form.cleaned_data["task_notes"],
-                )
+        form.save()
         messages.success(request, "Interaction recorded.")
     else:
         messages.error(
@@ -314,19 +297,9 @@ def _interaction_form_response(request, initial, fallback_url):
     data = request.POST.copy() if request.method == "POST" else None
     if data is not None and initial.get("contact"):
         data["contact"] = str(initial["contact"])
-    form = QuickInteractionForm(data, initial=initial)
+    form = InteractionForm(data, initial=initial)
     if request.method == "POST" and form.is_valid():
-        with transaction.atomic():
-            interaction = form.save(commit=False)
-            interaction.save()
-            if form.cleaned_data["create_follow_up"]:
-                Task.objects.create(
-                    title=form.cleaned_data["task_title"],
-                    contact=interaction.contact,
-                    job=interaction.job,
-                    due_at=form.cleaned_data["task_due_at"],
-                    notes=form.cleaned_data["task_notes"],
-                )
+        form.save()
         messages.success(request, "Interaction recorded.")
         return redirect(fallback_url)
     return render(
@@ -447,60 +420,6 @@ def document_search(request):
     )
 
 
-@login_required
-def task_list(request):
-    overdue_tasks, upcoming_tasks = _pending_tasks()
-    completed_tasks = Task.objects.filter(completed_at__isnull=False).select_related(
-        "contact", "job", "job__company"
-    )
-    return render(
-        request,
-        "tracker/task_list.html",
-        {
-            "overdue_tasks": overdue_tasks,
-            "upcoming_tasks": upcoming_tasks,
-            "completed_tasks": completed_tasks,
-        },
-    )
-
-
-@login_required
-def task_create(request):
-    data = request.POST if request.method == "POST" else None
-    initial = {
-        key: value for key in ("contact", "job") if (value := request.GET.get(key))
-    }
-    form = TaskForm(data, initial=initial)
-    if request.method == "POST" and form.is_valid():
-        form.save()
-        messages.success(request, "Task added.")
-        return redirect("task_list")
-    return render(
-        request, "tracker/form_page.html", {"form": form, "title": "Add task"}
-    )
-
-
-@login_required
-@require_POST
-def task_toggle(request, pk):
-    task = get_object_or_404(Task, pk=pk)
-    task.completed_at = None if task.completed_at else timezone.now()
-    task.save(update_fields=["completed_at"])
-    messages.success(
-        request, "Task reopened." if task.completed_at is None else "Task completed."
-    )
-    return _safe_redirect(request, request.POST.get("next"), "task_list")
-
-
-def _pending_tasks():
-    now = timezone.now()
-    related = ("contact", "job", "job__company")
-    incomplete = Task.objects.filter(completed_at__isnull=True).select_related(*related)
-    overdue = incomplete.filter(due_at__lt=now).order_by("due_at")
-    upcoming = incomplete.filter(due_at__gte=now).order_by("due_at")
-    return overdue, upcoming
-
-
 def _safe_redirect(request, destination, fallback):
     if destination and url_has_allowed_host_and_scheme(
         destination, allowed_hosts={request.get_host()}
@@ -559,7 +478,6 @@ def reports(request):
                 "count": stale.count(),
             }
         )
-    overdue_tasks, upcoming_tasks = _pending_tasks()
     return render(
         request,
         "tracker/reports.html",
@@ -570,8 +488,6 @@ def reports(request):
             "funnel": funnel,
             "weekly_outreach": weekly_outreach,
             "stale_buckets": stale_buckets,
-            "overdue_tasks": overdue_tasks,
-            "upcoming_tasks": upcoming_tasks,
         },
     )
 

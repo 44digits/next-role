@@ -15,7 +15,6 @@
           <a href="{% url 'board' %}">Jobs</a>
           <a href="{% url 'company_list' %}">Companies</a>
           <a href="{% url 'contact_list' %}">Contacts</a>
-          <a href="{% url 'task_list' %}">Tasks</a>
           <a href="{% url 'document_search' %}">Documents</a>
           <a href="{% url 'reports' %}">Reports</a>
           <button type="button" class="button small" data-open-interaction>Log interaction</button>
@@ -56,12 +55,6 @@
             <p><label for="{{ quick_interaction_form.direction.id_for_label }}">Direction</label>{{ quick_interaction_form.direction }}</p>
             <p><label for="{{ quick_interaction_form.occurred_at.id_for_label }}">Date and time</label>{{ quick_interaction_form.occurred_at }}</p>
             <p class="full-width"><label for="{{ quick_interaction_form.notes.id_for_label }}">Notes</label>{{ quick_interaction_form.notes }}</p>
-          </div>
-          <label class="checkbox-label">{{ quick_interaction_form.create_follow_up }} Schedule a follow-up task</label>
-          <div class="follow-up-fields" data-follow-up-fields hidden>
-            <p><label for="{{ quick_interaction_form.task_title.id_for_label }}">Task</label>{{ quick_interaction_form.task_title }}</p>
-            <p><label for="{{ quick_interaction_form.task_due_at.id_for_label }}">Due</label>{{ quick_interaction_form.task_due_at }}</p>
-            <p><label for="{{ quick_interaction_form.task_notes.id_for_label }}">Task notes</label>{{ quick_interaction_form.task_notes }}</p>
           </div>
           <div class="form-actions">
             <button type="submit" class="button primary">Save interaction</button>

@@ -8,7 +8,6 @@ from .models import (
     Job,
     JobDocument,
     JobLink,
-    Task,
 )
 
 
@@ -165,32 +164,6 @@ class InteractionForm(StyledModelForm):
         return cleaned_data
 
 
-class QuickInteractionForm(InteractionForm):
-    create_follow_up = forms.BooleanField(
-        required=False, label="Schedule follow-up task"
-    )
-    task_title = forms.CharField(max_length=200, required=False, label="Task")
-    task_due_at = forms.DateTimeField(
-        required=False,
-        input_formats=["%Y-%m-%dT%H:%M"],
-        widget=forms.DateTimeInput(
-            attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
-        ),
-    )
-    task_notes = forms.CharField(
-        required=False, widget=forms.Textarea(attrs={"rows": 2})
-    )
-
-    def clean(self):
-        cleaned_data = super().clean()
-        if cleaned_data.get("create_follow_up"):
-            if not cleaned_data.get("task_title"):
-                self.add_error("task_title", "Enter a title for the follow-up task.")
-            if not cleaned_data.get("task_due_at"):
-                self.add_error("task_due_at", "Choose when the task is due.")
-        return cleaned_data
-
-
 class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
 
@@ -253,34 +226,6 @@ class JobDocumentUploadForm(forms.Form):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs["class"] = "input"
-
-
-class TaskForm(StyledModelForm):
-    due_at = forms.DateTimeField(
-        input_formats=["%Y-%m-%dT%H:%M"],
-        widget=forms.DateTimeInput(
-            attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
-        ),
-    )
-
-    class Meta:
-        model = Task
-        fields = ["title", "contact", "job", "due_at", "notes"]
-        widgets = {"notes": forms.Textarea(attrs={"rows": 3})}
-
-    def clean(self):
-        cleaned_data = super().clean()
-        contact = cleaned_data.get("contact")
-        job = cleaned_data.get("job")
-        if not contact and not job:
-            raise forms.ValidationError("Link the task to a contact, a job, or both.")
-        if contact and job and contact.company_id != job.company_id:
-            raise forms.ValidationError(
-                "The task's contact and job must belong to the same company."
-            )
-        if contact and job and not job.contacts.filter(pk=contact.pk).exists():
-            self.add_error("job", "Choose a job linked to this contact.")
-        return cleaned_data
 
 
 class ApplicationReportForm(forms.Form):
