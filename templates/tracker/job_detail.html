@@ -1,0 +1,89 @@
+{% extends "tracker/base.html" %}
+
+{% block title %}{{ job.title }} - Next Role{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow"><a href="{% url 'company_detail' job.company_id %}">{{ job.company.name }}</a> · {{ job.get_status_display }}</p>
+      <h1>{{ job.title }}</h1>
+      {% if job.location %}<p>{{ job.location }}</p>{% endif %}
+    </div>
+    <div class="button-row">
+      <a class="button primary" href="{% url 'job_update' job.pk %}">Edit job</a>
+      <a class="button" href="{{ job.posting_url }}" target="_blank" rel="noopener noreferrer">Open posting</a>
+    </div>
+  </div>
+  <section class="panel">
+    <h2>Opportunity</h2>
+    <dl class="details">
+      <dt>Found</dt><dd>{{ job.found_on }}</dd>
+      <dt>Applied</dt><dd>{{ job.applied_on|default:"—" }}</dd>
+      <dt>Salary</dt><dd>{{ job.salary|default:"—" }}</dd>
+      <dt>Description</dt><dd>{{ job.description|linebreaksbr|default:"—" }}</dd>
+      <dt>Notes</dt><dd>{{ job.notes|linebreaksbr|default:"—" }}</dd>
+    </dl>
+  </section>
+  <div class="content-grid">
+    <section class="panel">
+      <div class="section-heading"><h2>Contacts</h2><a class="button small" href="{% url 'job_update' job.pk %}">Edit contacts</a></div>
+      <ul class="item-list">
+        {% for contact in job.contacts.all %}
+          <li><a href="{% url 'contact_detail' contact.pk %}">{{ contact.full_name }}</a><span class="muted">{{ contact.title }}</span></li>
+        {% empty %}<li class="muted">No contacts linked to this job.</li>{% endfor %}
+      </ul>
+    </section>
+    <section class="panel">
+      <div class="section-heading"><h2>Related links</h2><a class="button small" href="{% url 'job_link_create' job.pk %}">Add link</a></div>
+      <ul class="item-list">
+        {% for link in job.links.all %}
+          <li>
+            <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.label }}</a>
+            <form method="post" action="{% url 'job_link_delete' job.pk link.pk %}">
+              {% csrf_token %}<button class="text-button danger" type="submit">Remove</button>
+            </form>
+          </li>
+        {% empty %}<li class="muted">No related links added.</li>{% endfor %}
+      </ul>
+    </section>
+  </div>
+  <section class="panel">
+    <div class="section-heading"><h2>Documents</h2><a class="button small" href="{% url 'job_document_upload' job.pk %}">Add PDF</a></div>
+    <ul class="item-list">
+      {% for document in job.documents.all %}
+        <li>
+          <span><a href="{% url 'job_document_download' job.pk document.pk %}">{{ document.original_name }}</a> <span class="badge">{{ document.get_kind_display }}</span></span>
+          <form method="post" action="{% url 'job_document_delete' job.pk document.pk %}">
+            {% csrf_token %}<button class="text-button danger" type="submit">Delete</button>
+          </form>
+        </li>
+      {% empty %}<li class="muted">No documents uploaded.</li>{% endfor %}
+    </ul>
+  </section>
+  <div class="content-grid">
+    <section class="panel">
+      <h2>Status history</h2>
+      <ul class="timeline">
+        {% for change in job.status_history.all %}
+          <li>
+            {% if change.from_status %}<span>{{ change.get_from_status_display }} → </span>{% endif %}
+            <strong>{{ change.get_to_status_display }}</strong>
+            <time>{{ change.changed_at|date:"Y-m-d H:i" }}</time>
+          </li>
+        {% empty %}<li class="muted">No stage history yet.</li>{% endfor %}
+      </ul>
+    </section>
+    <section class="panel">
+      <h2>Job interactions</h2>
+      <ul class="timeline">
+        {% for interaction in interactions %}
+          <li>
+            <strong>{{ interaction.get_kind_display }}</strong> with
+            <a href="{% url 'contact_detail' interaction.contact_id %}">{{ interaction.contact.full_name }}</a>
+            <time>{{ interaction.occurred_at|date:"Y-m-d H:i" }}</time>
+            {% if interaction.notes %}<p>{{ interaction.notes|linebreaksbr }}</p>{% endif %}
+          </li>
+        {% empty %}<li class="muted">No interactions linked to this job.</li>{% endfor %}
+      </ul>
+    </section>
+  </div>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "tracker/base.html" %}
+
+{% block title %}Jobs board - Next Role{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <h1>Jobs board</h1>
+      <p>Track each opportunity from discovery through its current stage.</p>
+    </div>
+    <a class="button primary" href="{% url 'job_create' %}">Add job</a>
+  </div>
+  <div class="kanban">
+    {% for column in columns %}
+      <section class="kanban-column">
+        <h2>{{ column.label }} <span class="count">{{ column.jobs|length }}</span></h2>
+        {% for job in column.jobs %}
+          <article class="job-card">
+            <h3><a href="{% url 'job_detail' job.pk %}">{{ job.title }}</a></h3>
+            <p class="muted"><a href="{% url 'company_detail' job.company_id %}">{{ job.company.name }}</a></p>
+            {% if job.location %}<p>{{ job.location }}</p>{% endif %}
+            {% if job.applied_on %}<p class="muted">Applied {{ job.applied_on }}</p>{% endif %}
+            {% if job.contacts.all %}
+              <p class="muted">Contacts:
+                {% for contact in job.contacts.all %}
+                  <a href="{% url 'contact_detail' contact.pk %}">{{ contact.full_name }}</a>{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+              </p>
+            {% endif %}
+            <form method="post" action="{% url 'job_change_status' job.pk %}" class="status-form">
+              {% csrf_token %}
+              <label class="sr-only" for="status-{{ job.pk }}">Change status</label>
+              <select id="status-{{ job.pk }}" name="status" class="input">
+                {% for status, label in status_choices %}
+                  <option value="{{ status }}" {% if job.status == status %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              <button class="button small" type="submit">Update</button>
+            </form>
+          </article>
+        {% empty %}
+          <p class="empty">No jobs in this stage.</p>
+        {% endfor %}
+      </section>
+    {% endfor %}
+  </div>
+{% endblock %}

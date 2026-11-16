@@ -1,0 +1,46 @@
+{% extends "tracker/base.html" %}
+
+{% block title %}{{ contact.full_name }} - Next Role{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow"><a href="{% url 'company_detail' contact.company_id %}">{{ contact.company.name }}</a></p>
+      <h1>{{ contact.full_name }}</h1>
+      {% if contact.title %}<p>{{ contact.title }}</p>{% endif %}
+    </div>
+    <div class="button-row">
+      <a class="button primary" href="{% url 'interaction_create' contact.pk %}">Record interaction</a>
+      <a class="button" href="{% url 'contact_update' contact.pk %}">Edit contact</a>
+    </div>
+  </div>
+  <section class="panel">
+    <h2>Contact details</h2>
+    <dl class="details">
+      <dt>Email</dt><dd>{% if contact.email %}<a href="mailto:{{ contact.email }}">{{ contact.email }}</a>{% else %}—{% endif %}</dd>
+      <dt>Phone</dt><dd>{% if contact.phone %}<a href="tel:{{ contact.phone }}">{{ contact.phone }}</a>{% else %}—{% endif %}</dd>
+      <dt>LinkedIn</dt><dd>{% if contact.linkedin_url %}<a href="{{ contact.linkedin_url }}" target="_blank" rel="noopener noreferrer">{{ contact.linkedin_url }}</a>{% else %}—{% endif %}</dd>
+      <dt>Notes</dt><dd>{{ contact.notes|linebreaksbr|default:"—" }}</dd>
+    </dl>
+  </section>
+  <section class="panel">
+    <h2>Related jobs</h2>
+    <ul class="item-list">
+      {% for job in contact.jobs.all %}
+        <li><a href="{% url 'job_detail' job.pk %}">{{ job.title }}</a><span class="badge">{{ job.get_status_display }}</span></li>
+      {% empty %}<li class="muted">This contact is not linked to any jobs.</li>{% endfor %}
+    </ul>
+  </section>
+  <section class="panel">
+    <h2>Interaction history</h2>
+    <ul class="timeline">
+      {% for interaction in interactions %}
+        <li>
+          <strong>{{ interaction.get_kind_display }}</strong>
+          <time>{{ interaction.occurred_at|date:"Y-m-d H:i" }}</time>
+          {% if interaction.job %}<a href="{% url 'job_detail' interaction.job_id %}">{{ interaction.job.title }}</a>{% endif %}
+          {% if interaction.notes %}<p>{{ interaction.notes|linebreaksbr }}</p>{% endif %}
+        </li>
+      {% empty %}<li class="muted">No interactions recorded.</li>{% endfor %}
+    </ul>
+  </section>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "tracker/base.html" %}
+
+{% block title %}Companies - Next Role{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <div><h1>Companies</h1><p>Organizations connected to your opportunities.</p></div>
+    <a class="button primary" href="{% url 'company_create' %}">Add company</a>
+  </div>
+  <section class="panel">
+    {% if companies %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Company</th><th>Website</th><th>Jobs</th></tr></thead>
+          <tbody>
+            {% for company in companies %}
+              <tr>
+                <td><a href="{% url 'company_detail' company.pk %}">{{ company.name }}</a></td>
+                <td>{% if company.website %}<a href="{{ company.website }}" target="_blank" rel="noopener noreferrer">{{ company.website }}</a>{% else %}—{% endif %}</td>
+                <td>{{ company.job_count }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="empty">No companies yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

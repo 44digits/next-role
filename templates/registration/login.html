@@ -1,0 +1,14 @@
+{% extends "tracker/base.html" %}
+
+{% block title %}Sign in - Next Role{% endblock %}
+{% block content %}
+  <section class="panel narrow">
+    <h1>Sign in</h1>
+    <p>Use your administrator account to access your job tracker.</p>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="button primary" type="submit">Sign in</button>
+    </form>
+  </section>
+{% endblock %}

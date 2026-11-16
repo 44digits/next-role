@@ -2,7 +2,7 @@
 
 ## Problem and approach
 
-Build a containerized Python web application for organizing job opportunities, application progress, job-related PDFs, company contacts, interaction history, and follow-up reporting. Provide a kanban-like board with jobs grouped by their current application status. Start with manually entered job links; keep the design cloud-migration friendly without adding job-site scraping to the first release.
+Build a containerized Python web application for organizing job opportunities, application progress, job-related PDFs, company contacts, interactions, follow-up tasks, and search/analytics. Provide a drag-and-drop kanban board with jobs grouped by their current application status. Start with manually entered job links; keep the design cloud-migration friendly without adding job-site scraping to the first release.
 
 Use Django for its integrated data modeling, forms, authentication foundation, and admin; PostgreSQL for relational data; and server-rendered pages for a focused CRUD-oriented first release. Package the application with Docker and provide a local persistent volume for uploaded PDFs behind a storage abstraction so object storage can be introduced later.
 
@@ -12,27 +12,35 @@ Use Django for its integrated data modeling, forms, authentication foundation, a
 - Add and edit job postings manually. Defer automated job-site discovery.
 - Store PDFs on persistent local storage through a replaceable storage interface.
 - Track the current application stage and preserve stage-change history.
-- Provide a kanban-like jobs board with a column for each current application stage and job cards showing key details.
+- Provide a drag-and-drop kanban jobs board with columns for Wishlist, Applied, Recruiter Screen, Interviewing, Offer Extended, and Rejected; allow other useful states such as Job Found and Withdrawn. Moving a card changes its status and creates an audit-history entry.
+- Provide a detailed job view with company and position details, salary range, work location, attached documents with PDF preview, associated contacts, and a chronological feed combining status changes and interactions.
 - Model companies, jobs, contacts, and interactions so each job can have zero or more contacts; allow contacts to be associated with multiple jobs at the same company.
 - Support job/application documents such as resumes and submitted application files.
 - Report application counts grouped by current status for applications applied within a selected date range.
-- Show contacts with no recorded interaction during the previous six months, including contacts never contacted.
+- Provide a filterable contact directory by company, last-contact date, and role/title. Automatically maintain each contact's last-contacted date when an interaction is recorded.
+- Highlight contacts not contacted in more than 30, 60, and 180 days; include contacts never contacted.
+- Provide a global quick-interaction action on every page for logging email, LinkedIn message, phone call, interview, or other activity. Selecting a contact filters the optional related-job choices to jobs linked to that contact.
+- Allow interaction logging to optionally create a follow-up task. Tasks can be associated with a contact, a job, or both, and have a due date, completion state, and notes.
+- Accept multiple PDF documents per job, including job descriptions, resumes, and cover letters. Extract text during upload for keyword search across documents.
+- Provide analytics for application funnel conversion (Applied to Recruiter Screen to Interviewing), weekly outbound interactions by type, and overdue/upcoming tasks.
 
 ## Todos
 
 1. Establish the Django project, containerized development setup, and PostgreSQL configuration.
-2. Implement the company, job/application, contact, stage-history, interaction, and document data model with relationships and migrations.
-3. Implement usable web pages and forms to manage jobs, company details, contacts, stages, interactions, and related links; include a kanban-like board grouping jobs by current stage.
-4. Implement PDF upload, listing, download, and deletion with persistent local storage and basic file validation.
-5. Add reports for applications applied within a selected date range, grouped by current status, and contacts with no interaction in the prior six months.
-6. Add focused tests and setup/usage documentation; verify the containerized app and core workflows.
+2. Extend the data model for tasks, interaction types, contact last-contacted dates, document text extraction, and analytics; add migrations and relationship validation.
+3. Implement the job, company, and contact workflows, including a drag-and-drop status board, detailed job activity feed, and filterable contact directory.
+4. Implement global quick interaction logging and task scheduling, plus task completion and overdue/upcoming views.
+5. Implement multi-file PDF upload, preview, download, deletion, text extraction, and keyword search using persistent storage.
+6. Add application funnel, weekly outreach, application status/date-range, stale-contact, and task reports.
+7. Add focused tests and setup/usage documentation; verify the containerized app and core workflows.
 
 ## Notes and considerations
 
 - Keep application configuration externalized for future cloud deployment; do not bind the design to a particular cloud provider.
-- Use a controlled stage vocabulary including job found, applied, denied, HR interview, and other interview stages; preserve historical transitions rather than only overwriting the current stage.
-- Store interaction date, type (email, phone, interview, or other), notes, contact, and optional related job.
+- Use a controlled, configurable stage vocabulary that supports the pipeline states Wishlist, Job Found, Applied, Recruiter Screen, Interviewing, Offer Extended, Rejected, and Withdrawn; preserve historical transitions rather than only overwriting the current stage.
+- Store interaction date, type (email, LinkedIn message, phone, interview, or other), notes, contact, and optional related job. The selected job must be associated with the selected contact.
 - Base the application report's date filter on the applied date and group by each application's current status at report time.
-- Define "not contacted in six months" as having no recorded interaction in the rolling six months before the report is viewed; include contacts with no interaction history.
-- Store document metadata in the relational database and file bytes in the configured storage backend.
-- No implementation is included in this planning step.
+- Calculate contact last-contacted dates from interaction records and keep the displayed/stored value synchronized when interactions are created, updated, or removed. Use calendar-day thresholds of 30, 60, and 180 days, and include contacts with no interaction history.
+- Store tasks with due date/time, completion state, notes, and optional job/contact links; require at least one of job or contact.
+- Store document metadata and extracted text in the relational database and file bytes in the configured storage backend. Extract searchable text from PDFs with pdfplumber; retain the uploaded PDF as the source of truth.
+- Define funnel stages consistently and make the conversion denominator explicit; report weekly outbound interaction counts grouped by interaction type.

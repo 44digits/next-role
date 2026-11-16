@@ -1,0 +1,30 @@
+{% extends "tracker/base.html" %}
+
+{% block title %}Contacts - Next Role{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <div><h1>Contacts</h1><p>People you've found at companies you're tracking.</p></div>
+    <a class="button primary" href="{% url 'contact_create' %}">Add contact</a>
+  </div>
+  <section class="panel">
+    {% if contacts %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Company</th><th>Email</th><th>Last interaction</th></tr></thead>
+          <tbody>
+            {% for contact in contacts %}
+              <tr>
+                <td><a href="{% url 'contact_detail' contact.pk %}">{{ contact.full_name }}</a></td>
+                <td><a href="{% url 'company_detail' contact.company_id %}">{{ contact.company.name }}</a></td>
+                <td>{% if contact.email %}<a href="mailto:{{ contact.email }}">{{ contact.email }}</a>{% else %}—{% endif %}</td>
+                <td>{% if contact.last_contacted %}{{ contact.last_contacted|date:"Y-m-d" }}{% else %}Never{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="empty">No contacts yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "tracker/base.html" %}
+
+{% block title %}{{ title }} - Next Role{% endblock %}
+{% block content %}
+  <section class="panel narrow">
+    <h1>{{ title }}</h1>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <div class="form-actions">
+        <button class="button primary" type="submit">Save</button>
+        <a class="button" href="{% url 'board' %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

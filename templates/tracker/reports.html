@@ -1,0 +1,46 @@
+{% extends "tracker/base.html" %}
+
+{% block title %}Reports - Next Role{% endblock %}
+{% block content %}
+  <h1>Reports</h1>
+  <section class="panel">
+    <h2>Applications by status</h2>
+    <form method="get" class="filter-form">
+      <div>{{ form.start_date.label_tag }}{{ form.start_date }}{{ form.start_date.errors }}</div>
+      <div>{{ form.end_date.label_tag }}{{ form.end_date }}{{ form.end_date.errors }}</div>
+      <button class="button primary" type="submit">Apply date range</button>
+      <a class="button" href="{% url 'reports' %}">Clear</a>
+    </form>
+    {{ form.non_field_errors }}
+    <p class="muted">Counts include jobs whose applied date falls in the selected range and use their current status.</p>
+    <div class="metric-row">
+      <div class="metric"><span>Total applications</span><strong>{{ total_applications }}</strong></div>
+      {% for item in status_counts %}
+        <div class="metric"><span>{{ item.label }}</span><strong>{{ item.count }}</strong></div>
+      {% endfor %}
+    </div>
+  </section>
+  <section class="panel">
+    <h2>Contacts to follow up with</h2>
+    <p class="muted">No recorded interaction since {{ cutoff_date }} (including contacts never contacted).</p>
+    {% if stale_contacts %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Contact</th><th>Company</th><th>Last interaction</th><th></th></tr></thead>
+          <tbody>
+            {% for contact in stale_contacts %}
+              <tr>
+                <td><a href="{% url 'contact_detail' contact.pk %}">{{ contact.full_name }}</a></td>
+                <td><a href="{% url 'company_detail' contact.company_id %}">{{ contact.company.name }}</a></td>
+                <td>{% if contact.last_contacted %}{{ contact.last_contacted|date:"Y-m-d" }}{% else %}Never{% endif %}</td>
+                <td><a class="button small" href="{% url 'interaction_create' contact.pk %}">Log interaction</a></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="empty">Everyone has been contacted recently.</p>
+    {% endif %}
+  </section>
+{% endblock %}
