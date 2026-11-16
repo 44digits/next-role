@@ -58,17 +58,11 @@ class Contact(models.Model):
 
 class Job(models.Model):
     class Status(models.TextChoices):
-        WISHLIST = "wishlist", "Wishlist"
         FOUND = "found", "Job found"
         APPLIED = "applied", "Applied"
-        RECRUITER_SCREEN = "recruiter_screen", "Recruiter screen"
-        INTERVIEWING = "interviewing", "Interviewing"
-        HR_INTERVIEW = "hr_interview", "HR interview"
-        TECHNICAL_INTERVIEW = "technical_interview", "Technical interview"
-        OTHER_INTERVIEW = "other_interview", "Other interview"
+        INTERVIEW = "interview", "Interview"
         OFFER = "offer", "Offer extended"
         DENIED = "denied", "Rejected"
-        WITHDRAWN = "withdrawn", "Withdrawn"
 
     company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="jobs")
     title = models.CharField(max_length=200)
@@ -99,13 +93,9 @@ class Job(models.Model):
         tracks_status = update_fields is None or "status" in update_fields
         applied_statuses = {
             self.Status.APPLIED,
-            self.Status.RECRUITER_SCREEN,
-            self.Status.INTERVIEWING,
-            self.Status.DENIED,
-            self.Status.HR_INTERVIEW,
-            self.Status.TECHNICAL_INTERVIEW,
-            self.Status.OTHER_INTERVIEW,
+            self.Status.INTERVIEW,
             self.Status.OFFER,
+            self.Status.DENIED,
         }
         if (
             tracks_status

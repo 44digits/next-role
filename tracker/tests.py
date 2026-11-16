@@ -28,11 +28,23 @@ class JobStatusHistoryTests(TestCase):
             posting_url="https://example.com/jobs/1",
         )
 
+    def test_status_list_has_one_interview_and_no_wishlist_or_withdrawn(self):
+        self.assertEqual(
+            Job.Status.values,
+            [
+                "found",
+                "applied",
+                "interview",
+                "offer",
+                "denied",
+            ],
+        )
+
     def test_initial_status_and_each_change_are_recorded(self):
         self.job.status = Job.Status.APPLIED
         self.job.save(update_fields=["status"])
         self.assertEqual(self.job.applied_on, timezone.localdate())
-        self.job.status = Job.Status.HR_INTERVIEW
+        self.job.status = Job.Status.INTERVIEW
         self.job.save(update_fields=["status"])
 
         history = list(self.job.status_history.order_by("pk"))
@@ -41,7 +53,7 @@ class JobStatusHistoryTests(TestCase):
             [
                 ("", Job.Status.FOUND),
                 (Job.Status.FOUND, Job.Status.APPLIED),
-                (Job.Status.APPLIED, Job.Status.HR_INTERVIEW),
+                (Job.Status.APPLIED, Job.Status.INTERVIEW),
             ],
         )
 
@@ -347,26 +359,26 @@ class TrackerViewTests(TestCase):
             status=Job.Status.APPLIED,
             applied_on=today,
         )
-        screened = Job.objects.create(
+        interviewed = Job.objects.create(
             company=self.company,
-            title="Screened",
-            posting_url="https://example.com/jobs/screened",
+            title="Interviewed",
+            posting_url="https://example.com/jobs/interviewed",
             status=Job.Status.APPLIED,
             applied_on=today,
         )
-        screened.status = Job.Status.RECRUITER_SCREEN
-        screened.save(update_fields=["status"])
-        interviewing = Job.objects.create(
+        interviewed.status = Job.Status.INTERVIEW
+        interviewed.save(update_fields=["status"])
+        offered = Job.objects.create(
             company=self.company,
-            title="Interviewing",
-            posting_url="https://example.com/jobs/interviewing",
+            title="Offer",
+            posting_url="https://example.com/jobs/offer",
             status=Job.Status.APPLIED,
             applied_on=today,
         )
-        interviewing.status = Job.Status.RECRUITER_SCREEN
-        interviewing.save(update_fields=["status"])
-        interviewing.status = Job.Status.INTERVIEWING
-        interviewing.save(update_fields=["status"])
+        offered.status = Job.Status.INTERVIEW
+        offered.save(update_fields=["status"])
+        offered.status = Job.Status.OFFER
+        offered.save(update_fields=["status"])
         contact = Contact.objects.create(
             company=self.company, first_name="Jordan", last_name="Recruiter"
         )

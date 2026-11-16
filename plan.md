@@ -121,7 +121,7 @@ Each interaction belongs to one contact and may relate to one job. Each task may
 - Add and edit job postings manually. Defer automated job-site discovery.
 - Store PDFs on persistent local storage through a replaceable storage interface.
 - Track the current application stage and preserve stage-change history.
-- Provide a drag-and-drop kanban jobs board with columns for Wishlist, Applied, Recruiter Screen, Interviewing, Offer Extended, and Rejected; allow other useful states such as Job Found and Withdrawn. Moving a card changes its status and creates an audit-history entry.
+- Provide a drag-and-drop kanban jobs board with the stages Job Found, Applied, Interview, Offer Extended, and Rejected. Moving a card changes its status and creates an audit-history entry.
 - Provide a detailed job view with company and position details, salary range, work location, attached documents with PDF preview, associated contacts, and a chronological feed combining status changes and interactions.
 - Model companies, jobs, contacts, and interactions so each job can have zero or more contacts; allow contacts to be associated with multiple jobs at the same company.
 - Support job/application documents such as resumes and submitted application files.
@@ -131,7 +131,7 @@ Each interaction belongs to one contact and may relate to one job. Each task may
 - Provide a global quick-interaction action on every page for logging email, LinkedIn message, phone call, interview, or other activity. Selecting a contact filters the optional related-job choices to jobs linked to that contact.
 - Allow interaction logging to optionally create a follow-up task. Tasks can be associated with a contact, a job, or both, and have a due date, completion state, and notes.
 - Accept multiple PDF documents per job, including job descriptions, resumes, and cover letters. Extract text during upload for keyword search across documents.
-- Provide analytics for application funnel conversion (Applied to Recruiter Screen to Interviewing), weekly outbound interactions by type, and overdue/upcoming tasks.
+- Provide analytics for application funnel conversion (Applied to Interview to Offer Extended), weekly outbound interactions by type, and overdue/upcoming tasks.
 
 ## Todos
 
@@ -146,7 +146,7 @@ Each interaction belongs to one contact and may relate to one job. Each task may
 ## Notes and considerations
 
 - Keep application configuration externalized for future cloud deployment; do not bind the design to a particular cloud provider.
-- Use a controlled, code-defined stage vocabulary that supports the pipeline states Wishlist, Job Found, Applied, Recruiter Screen, Interviewing, Offer Extended, Rejected, and Withdrawn; preserve historical transitions rather than only overwriting the current stage. User-defined stages are outside the first-release scope.
+- Use a controlled, code-defined stage vocabulary of Job Found, Applied, Interview, Offer Extended, and Rejected; preserve historical transitions rather than only overwriting the current stage. User-defined stages are outside the first-release scope.
 - Store interaction date, type (email, LinkedIn message, phone, interview, or other), notes, contact, and optional related job. The selected job must be associated with the selected contact.
 - Base the application report's date filter on the applied date and group by each application's current status at report time.
 - Calculate contact last-contacted dates from interaction records and keep the displayed/stored value synchronized when interactions are created, updated, or removed. Use calendar-day thresholds of 30, 60, and 180 days, and include contacts with no interaction history.

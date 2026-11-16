@@ -581,23 +581,14 @@ def _application_funnel(applied_jobs):
     if not applied_ids:
         return [
             {"label": label, "count": 0, "percent": 0}
-            for label in ("Applied", "Recruiter screen", "Interviewing")
+            for label in ("Applied", "Interview", "Offer extended")
         ]
 
-    interview_stages = {
-        Job.Status.INTERVIEWING,
-        Job.Status.HR_INTERVIEW,
-        Job.Status.TECHNICAL_INTERVIEW,
-        Job.Status.OTHER_INTERVIEW,
-    }
-    interview_ids = _jobs_reaching_statuses(applied_ids, interview_stages)
-    screen_ids = (
-        _jobs_reaching_statuses(applied_ids, {Job.Status.RECRUITER_SCREEN})
-        | interview_ids
-    )
+    interview_ids = _jobs_reaching_statuses(applied_ids, {Job.Status.INTERVIEW})
+    offer_ids = _jobs_reaching_statuses(applied_ids, {Job.Status.OFFER})
     applied_count = len(applied_ids)
-    screen_count = len(screen_ids)
     interview_count = len(interview_ids)
+    offer_count = len(offer_ids)
     return [
         {
             "label": "Applied",
@@ -605,15 +596,15 @@ def _application_funnel(applied_jobs):
             "percent": 100 if applied_count else 0,
         },
         {
-            "label": "Recruiter screen",
-            "count": screen_count,
-            "percent": round(screen_count / applied_count * 100),
+            "label": "Interview",
+            "count": interview_count,
+            "percent": round(interview_count / applied_count * 100),
         },
         {
-            "label": "Interviewing",
-            "count": interview_count,
-            "percent": round(interview_count / screen_count * 100)
-            if screen_count
+            "label": "Offer extended",
+            "count": offer_count,
+            "percent": round(offer_count / interview_count * 100)
+            if interview_count
             else 0,
         },
     ]
