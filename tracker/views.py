@@ -581,12 +581,30 @@ def _application_funnel(applied_jobs):
     if not applied_ids:
         return [
             {"label": label, "count": 0, "percent": 0}
-            for label in ("Applied", "Interview", "Offer extended")
+            for label in (
+                "Applied",
+                "Acknowledged",
+                "Recruiter screen",
+                "Interview",
+                "Offer extended",
+            )
         ]
 
-    interview_ids = _jobs_reaching_statuses(applied_ids, {Job.Status.INTERVIEW})
     offer_ids = _jobs_reaching_statuses(applied_ids, {Job.Status.OFFER})
+    interview_ids = (
+        _jobs_reaching_statuses(applied_ids, {Job.Status.INTERVIEW}) | offer_ids
+    )
+    recruiter_screen_ids = (
+        _jobs_reaching_statuses(applied_ids, {Job.Status.RECRUITER_SCREEN})
+        | interview_ids
+    )
+    acknowledged_ids = (
+        _jobs_reaching_statuses(applied_ids, {Job.Status.ACKNOWLEDGED})
+        | recruiter_screen_ids
+    )
     applied_count = len(applied_ids)
+    acknowledged_count = len(acknowledged_ids)
+    recruiter_screen_count = len(recruiter_screen_ids)
     interview_count = len(interview_ids)
     offer_count = len(offer_ids)
     return [
@@ -596,9 +614,23 @@ def _application_funnel(applied_jobs):
             "percent": 100 if applied_count else 0,
         },
         {
+            "label": "Acknowledged",
+            "count": acknowledged_count,
+            "percent": round(acknowledged_count / applied_count * 100),
+        },
+        {
+            "label": "Recruiter screen",
+            "count": recruiter_screen_count,
+            "percent": round(recruiter_screen_count / acknowledged_count * 100)
+            if acknowledged_count
+            else 0,
+        },
+        {
             "label": "Interview",
             "count": interview_count,
-            "percent": round(interview_count / applied_count * 100),
+            "percent": round(interview_count / recruiter_screen_count * 100)
+            if recruiter_screen_count
+            else 0,
         },
         {
             "label": "Offer extended",

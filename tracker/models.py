@@ -60,6 +60,8 @@ class Job(models.Model):
     class Status(models.TextChoices):
         FOUND = "found", "Job found"
         APPLIED = "applied", "Applied"
+        ACKNOWLEDGED = "acknowledged", "Acknowledged"
+        RECRUITER_SCREEN = "recruiter_screen", "Recruiter screen"
         INTERVIEW = "interview", "Interview"
         OFFER = "offer", "Offer extended"
         DENIED = "denied", "Rejected"
@@ -93,6 +95,8 @@ class Job(models.Model):
         tracks_status = update_fields is None or "status" in update_fields
         applied_statuses = {
             self.Status.APPLIED,
+            self.Status.ACKNOWLEDGED,
+            self.Status.RECRUITER_SCREEN,
             self.Status.INTERVIEW,
             self.Status.OFFER,
             self.Status.DENIED,

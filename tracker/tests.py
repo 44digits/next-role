@@ -28,12 +28,14 @@ class JobStatusHistoryTests(TestCase):
             posting_url="https://example.com/jobs/1",
         )
 
-    def test_status_list_has_one_interview_and_no_wishlist_or_withdrawn(self):
+    def test_status_list_has_acknowledged_recruiter_screen_and_one_interview(self):
         self.assertEqual(
             Job.Status.values,
             [
                 "found",
                 "applied",
+                "acknowledged",
+                "recruiter_screen",
                 "interview",
                 "offer",
                 "denied",
@@ -44,6 +46,10 @@ class JobStatusHistoryTests(TestCase):
         self.job.status = Job.Status.APPLIED
         self.job.save(update_fields=["status"])
         self.assertEqual(self.job.applied_on, timezone.localdate())
+        self.job.status = Job.Status.ACKNOWLEDGED
+        self.job.save(update_fields=["status"])
+        self.job.status = Job.Status.RECRUITER_SCREEN
+        self.job.save(update_fields=["status"])
         self.job.status = Job.Status.INTERVIEW
         self.job.save(update_fields=["status"])
 
@@ -53,7 +59,9 @@ class JobStatusHistoryTests(TestCase):
             [
                 ("", Job.Status.FOUND),
                 (Job.Status.FOUND, Job.Status.APPLIED),
-                (Job.Status.APPLIED, Job.Status.INTERVIEW),
+                (Job.Status.APPLIED, Job.Status.ACKNOWLEDGED),
+                (Job.Status.ACKNOWLEDGED, Job.Status.RECRUITER_SCREEN),
+                (Job.Status.RECRUITER_SCREEN, Job.Status.INTERVIEW),
             ],
         )
 
@@ -366,6 +374,10 @@ class TrackerViewTests(TestCase):
             status=Job.Status.APPLIED,
             applied_on=today,
         )
+        interviewed.status = Job.Status.ACKNOWLEDGED
+        interviewed.save(update_fields=["status"])
+        interviewed.status = Job.Status.RECRUITER_SCREEN
+        interviewed.save(update_fields=["status"])
         interviewed.status = Job.Status.INTERVIEW
         interviewed.save(update_fields=["status"])
         offered = Job.objects.create(
@@ -375,6 +387,10 @@ class TrackerViewTests(TestCase):
             status=Job.Status.APPLIED,
             applied_on=today,
         )
+        offered.status = Job.Status.ACKNOWLEDGED
+        offered.save(update_fields=["status"])
+        offered.status = Job.Status.RECRUITER_SCREEN
+        offered.save(update_fields=["status"])
         offered.status = Job.Status.INTERVIEW
         offered.save(update_fields=["status"])
         offered.status = Job.Status.OFFER
@@ -412,7 +428,7 @@ class TrackerViewTests(TestCase):
 
         self.assertEqual(
             [(item["count"], item["percent"]) for item in response.context["funnel"]],
-            [(3, 100), (2, 67), (1, 50)],
+            [(3, 100), (2, 67), (2, 100), (2, 100), (1, 50)],
         )
         self.assertEqual(len(response.context["weekly_outreach"]), 1)
         self.assertEqual(response.context["weekly_outreach"][0]["total"], 2)
