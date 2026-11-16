@@ -9,15 +9,46 @@
     </div>
     <a class="button primary" href="{% url 'job_create' %}">Add job</a>
   </div>
+  <div class="content-grid">
+    <section class="panel task-widget">
+      <div class="section-heading"><h2>Overdue tasks</h2><a href="{% url 'task_list' %}">View all</a></div>
+      <ul class="item-list">
+        {% for task in overdue_tasks|slice:":5" %}
+          <li>
+            <span><strong>{{ task.title }}</strong><small>Due {{ task.due_at|date:"Y-m-d H:i" }}</small></span>
+            <form method="post" action="{% url 'task_toggle' task.pk %}">
+              {% csrf_token %}<input type="hidden" name="next" value="{% url 'board' %}">
+              <button class="button small" type="submit">Complete</button>
+            </form>
+          </li>
+        {% empty %}<li class="muted">No overdue tasks.</li>{% endfor %}
+      </ul>
+    </section>
+    <section class="panel task-widget">
+      <div class="section-heading"><h2>Upcoming tasks</h2><a class="button small" href="{% url 'task_create' %}">Add task</a></div>
+      <ul class="item-list">
+        {% for task in upcoming_tasks|slice:":5" %}
+          <li>
+            <span><strong>{{ task.title }}</strong><small>Due {{ task.due_at|date:"Y-m-d H:i" }}</small></span>
+            <form method="post" action="{% url 'task_toggle' task.pk %}">
+              {% csrf_token %}<input type="hidden" name="next" value="{% url 'board' %}">
+              <button class="button small" type="submit">Complete</button>
+            </form>
+          </li>
+        {% empty %}<li class="muted">No upcoming tasks.</li>{% endfor %}
+      </ul>
+    </section>
+  </div>
   <div class="kanban">
     {% for column in columns %}
-      <section class="kanban-column">
+      <section class="kanban-column" data-status-column="{{ column.key }}">
         <h2>{{ column.label }} <span class="count">{{ column.jobs|length }}</span></h2>
         {% for job in column.jobs %}
-          <article class="job-card">
+          <article class="job-card" draggable="true" data-job-card data-job-id="{{ job.pk }}" aria-label="Drag {{ job.title }} to change status">
             <h3><a href="{% url 'job_detail' job.pk %}">{{ job.title }}</a></h3>
             <p class="muted"><a href="{% url 'company_detail' job.company_id %}">{{ job.company.name }}</a></p>
             {% if job.location %}<p>{{ job.location }}</p>{% endif %}
+            {% if job.salary_range %}<p>{{ job.salary_range }}</p>{% endif %}
             {% if job.applied_on %}<p class="muted">Applied {{ job.applied_on }}</p>{% endif %}
             {% if job.contacts.all %}
               <p class="muted">Contacts:
@@ -26,8 +57,9 @@
                 {% endfor %}
               </p>
             {% endif %}
-            <form method="post" action="{% url 'job_change_status' job.pk %}" class="status-form">
+            <form method="post" action="{% url 'job_change_status' job.pk %}" class="status-form" data-status-form>
               {% csrf_token %}
+              <input type="hidden" name="next" value="{% url 'board' %}">
               <label class="sr-only" for="status-{{ job.pk }}">Change status</label>
               <select id="status-{{ job.pk }}" name="status" class="input">
                 {% for status, label in status_choices %}

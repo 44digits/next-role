@@ -1,6 +1,5 @@
-import calendar
 import tempfile
-from datetime import datetime, time, timedelta
+from datetime import timedelta
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
@@ -16,6 +15,7 @@ from .models import (
     Job,
     JobContact,
     JobDocument,
+    Task,
 )
 
 
@@ -73,6 +73,35 @@ class JobStatusHistoryTests(TestCase):
             ValidationError, "must belong to the job's company"
         ):
             association.full_clean()
+
+    def test_interaction_keeps_last_contacted_date_in_sync(self):
+        contact = Contact.objects.create(
+            company=self.company, first_name="Casey", last_name="Recruiter"
+        )
+        earlier = Interaction.objects.create(
+            contact=contact,
+            kind=Interaction.Kind.EMAIL,
+            occurred_at=timezone.now() - timedelta(days=4),
+        )
+        later = Interaction.objects.create(
+            contact=contact,
+            kind=Interaction.Kind.LINKEDIN,
+            occurred_at=timezone.now() - timedelta(days=1),
+        )
+        self.assertEqual(
+            contact.__class__.objects.get(pk=contact.pk).last_contacted_at,
+            later.occurred_at,
+        )
+
+        Interaction.objects.filter(pk=later.pk).delete()
+        contact.refresh_from_db()
+        self.assertEqual(contact.last_contacted_at, earlier.occurred_at)
+
+    def test_task_requires_job_or_contact(self):
+        task = Task(title="Follow up", due_at=timezone.now())
+
+        with self.assertRaises(ValidationError):
+            task.full_clean()
 
 
 class TrackerViewTests(TestCase):
@@ -132,6 +161,7 @@ class TrackerViewTests(TestCase):
             reverse("interaction_create", args=[contact.pk]),
             {
                 "kind": Interaction.Kind.EMAIL,
+                "direction": Interaction.Direction.OUTBOUND,
                 "occurred_at": timezone.localtime().strftime("%Y-%m-%dT%H:%M"),
                 "notes": "Sent a follow-up email.",
             },
@@ -143,6 +173,95 @@ class TrackerViewTests(TestCase):
             self.client.get(reverse("contact_detail", args=[contact.pk])),
             "Sent a follow-up email.",
         )
+        contact.refresh_from_db()
+        self.assertIsNotNone(contact.last_contacted_at)
+
+    def test_global_interaction_can_schedule_follow_up_task(self):
+        contact = Contact.objects.create(
+            company=self.company, first_name="Taylor", last_name="Recruiter"
+        )
+        JobContact.objects.create(job=self.job, contact=contact)
+
+        response = self.client.post(
+            reverse("quick_interaction"),
+            {
+                "contact": contact.pk,
+                "job": self.job.pk,
+                "kind": Interaction.Kind.EMAIL,
+                "direction": Interaction.Direction.OUTBOUND,
+                "occurred_at": timezone.localtime().strftime("%Y-%m-%dT%H:%M"),
+                "notes": "Follow-up sent.",
+                "create_follow_up": "on",
+                "task_title": "Check in next week",
+                "task_due_at": (timezone.localtime() + timedelta(days=7)).strftime(
+                    "%Y-%m-%dT%H:%M"
+                ),
+                "task_notes": "Ask about the application.",
+            },
+        )
+
+        self.assertRedirects(response, reverse("board"))
+        interaction = Interaction.objects.get()
+        task = Task.objects.get()
+        self.assertEqual(interaction.contact, contact)
+        self.assertEqual(interaction.job, self.job)
+        self.assertEqual(task.contact, contact)
+        self.assertEqual(task.job, self.job)
+        self.assertEqual(task.title, "Check in next week")
+
+    def test_task_completion_updates_task_center(self):
+        task = Task.objects.create(
+            title="Prepare questions",
+            contact=Contact.objects.create(
+                company=self.company, first_name="Morgan", last_name="Recruiter"
+            ),
+            due_at=timezone.now() + timedelta(days=1),
+        )
+
+        response = self.client.post(
+            reverse("task_toggle", args=[task.pk]),
+            {"next": reverse("task_list")},
+        )
+
+        self.assertRedirects(response, reverse("task_list"))
+        task.refresh_from_db()
+        self.assertIsNotNone(task.completed_at)
+
+    def test_contact_directory_filters_by_role_and_inactivity(self):
+        stale = Contact.objects.create(
+            company=self.company,
+            first_name="Stale",
+            last_name="Recruiter",
+            title="Recruiter",
+        )
+        recent = Contact.objects.create(
+            company=self.company,
+            first_name="Recent",
+            last_name="Recruiter",
+            title="Recruiter",
+        )
+        Contact.objects.create(
+            company=self.company,
+            first_name="Other",
+            last_name="Role",
+            title="Engineer",
+        )
+        Interaction.objects.create(
+            contact=stale,
+            kind=Interaction.Kind.EMAIL,
+            occurred_at=timezone.now() - timedelta(days=45),
+        )
+        Interaction.objects.create(
+            contact=recent,
+            kind=Interaction.Kind.EMAIL,
+            occurred_at=timezone.now() - timedelta(days=5),
+        )
+
+        response = self.client.get(
+            reverse("contact_list"), {"role": "recruit", "inactivity": "30"}
+        )
+
+        self.assertEqual(list(response.context["contacts"]), [stale])
 
     def test_invalid_report_range_does_not_show_unfiltered_totals(self):
         Job.objects.create(
@@ -187,17 +306,15 @@ class TrackerViewTests(TestCase):
             company=self.company, first_name="Recent", last_name="Contact"
         )
 
-        cutoff_date = _six_months_before(today)
-        cutoff = timezone.make_aware(datetime.combine(cutoff_date, time.min))
         Interaction.objects.create(
             contact=stale,
             kind=Interaction.Kind.EMAIL,
-            occurred_at=cutoff - timedelta(seconds=1),
+            occurred_at=timezone.now() - timedelta(days=200),
         )
         Interaction.objects.create(
             contact=recent,
             kind=Interaction.Kind.PHONE,
-            occurred_at=cutoff + timedelta(days=1),
+            occurred_at=timezone.now() - timedelta(days=10),
         )
 
         response = self.client.get(
@@ -213,23 +330,92 @@ class TrackerViewTests(TestCase):
             {
                 item["label"]: item["count"]
                 for item in response.context["status_counts"]
-            }["Denied"],
+            }["Rejected"],
             1,
         )
-        stale_ids = {contact.pk for contact in response.context["stale_contacts"]}
+        stale_ids = {
+            contact.pk for contact in response.context["stale_buckets"][-1]["contacts"]
+        }
         self.assertEqual(stale_ids, {stale.pk, never.pk})
+
+    def test_reports_calculate_funnel_and_weekly_outreach(self):
+        today = timezone.localdate()
+        applied = Job.objects.create(
+            company=self.company,
+            title="Applied",
+            posting_url="https://example.com/jobs/applied",
+            status=Job.Status.APPLIED,
+            applied_on=today,
+        )
+        screened = Job.objects.create(
+            company=self.company,
+            title="Screened",
+            posting_url="https://example.com/jobs/screened",
+            status=Job.Status.APPLIED,
+            applied_on=today,
+        )
+        screened.status = Job.Status.RECRUITER_SCREEN
+        screened.save(update_fields=["status"])
+        interviewing = Job.objects.create(
+            company=self.company,
+            title="Interviewing",
+            posting_url="https://example.com/jobs/interviewing",
+            status=Job.Status.APPLIED,
+            applied_on=today,
+        )
+        interviewing.status = Job.Status.RECRUITER_SCREEN
+        interviewing.save(update_fields=["status"])
+        interviewing.status = Job.Status.INTERVIEWING
+        interviewing.save(update_fields=["status"])
+        contact = Contact.objects.create(
+            company=self.company, first_name="Jordan", last_name="Recruiter"
+        )
+        JobContact.objects.create(job=applied, contact=contact)
+        Interaction.objects.create(
+            contact=contact,
+            job=applied,
+            kind=Interaction.Kind.EMAIL,
+            direction=Interaction.Direction.OUTBOUND,
+        )
+        Interaction.objects.create(
+            contact=contact,
+            job=applied,
+            kind=Interaction.Kind.PHONE,
+            direction=Interaction.Direction.OUTBOUND,
+        )
+        Interaction.objects.create(
+            contact=contact,
+            job=applied,
+            kind=Interaction.Kind.EMAIL,
+            direction=Interaction.Direction.INBOUND,
+        )
+
+        response = self.client.get(
+            reverse("reports"),
+            {
+                "start_date": today.isoformat(),
+                "end_date": today.isoformat(),
+            },
+        )
+
+        self.assertEqual(
+            [(item["count"], item["percent"]) for item in response.context["funnel"]],
+            [(3, 100), (2, 67), (1, 50)],
+        )
+        self.assertEqual(len(response.context["weekly_outreach"]), 1)
+        self.assertEqual(response.context["weekly_outreach"][0]["total"], 2)
 
     def test_document_upload_and_download(self):
         with tempfile.TemporaryDirectory() as media_root:
             with override_settings(MEDIA_ROOT=media_root):
                 upload = SimpleUploadedFile(
                     "resume.pdf",
-                    b"%PDF-1.4\nsample document",
+                    _make_pdf("sample document"),
                     content_type="application/pdf",
                 )
                 response = self.client.post(
                     reverse("job_document_upload", args=[self.job.pk]),
-                    {"kind": JobDocument.Kind.RESUME, "file": upload},
+                    {"kind": JobDocument.Kind.RESUME, "files": [upload]},
                 )
                 document = JobDocument.objects.get()
                 self.assertRedirects(
@@ -246,8 +432,49 @@ class TrackerViewTests(TestCase):
                 self.assertEqual(response["Content-Type"], "application/pdf")
                 self.assertEqual(
                     b"".join(response.streaming_content),
-                    b"%PDF-1.4\nsample document",
+                    _make_pdf("sample document"),
                 )
+                self.assertIn("sample document", document.extracted_text)
+
+    def test_multiple_documents_are_searchable_and_previewable(self):
+        with tempfile.TemporaryDirectory() as media_root:
+            with override_settings(MEDIA_ROOT=media_root):
+                response = self.client.post(
+                    reverse("job_document_upload", args=[self.job.pk]),
+                    {
+                        "kind": JobDocument.Kind.JOB_DESCRIPTION,
+                        "files": [
+                            SimpleUploadedFile(
+                                "description.pdf",
+                                _make_pdf("Distributed systems"),
+                                content_type="application/pdf",
+                            ),
+                            SimpleUploadedFile(
+                                "requirements.pdf",
+                                _make_pdf("PostgreSQL and Python"),
+                                content_type="application/pdf",
+                            ),
+                        ],
+                    },
+                )
+                self.assertRedirects(
+                    response, reverse("job_detail", args=[self.job.pk])
+                )
+                self.assertEqual(JobDocument.objects.count(), 2)
+
+                response = self.client.get(
+                    reverse("document_search"), {"query": "PostgreSQL"}
+                )
+                self.assertContains(response, "requirements.pdf")
+                document = JobDocument.objects.get(original_name="description.pdf")
+                preview = self.client.get(
+                    reverse(
+                        "job_document_preview",
+                        args=[self.job.pk, document.pk],
+                    )
+                )
+                self.assertEqual(preview["Content-Type"], "application/pdf")
+                self.assertIn("inline", preview["Content-Disposition"])
 
     def test_invalid_pdf_upload_is_rejected(self):
         upload = SimpleUploadedFile(
@@ -255,7 +482,7 @@ class TrackerViewTests(TestCase):
         )
         response = self.client.post(
             reverse("job_document_upload", args=[self.job.pk]),
-            {"kind": JobDocument.Kind.OTHER, "file": upload},
+            {"kind": JobDocument.Kind.OTHER, "files": [upload]},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -269,9 +496,36 @@ class TrackerViewTests(TestCase):
         self.assertRedirects(response, f"{reverse('login')}?next={reverse('board')}")
 
 
-def _six_months_before(value):
-    month_index = value.month - 6 - 1
-    year = value.year + month_index // 12
-    month = month_index % 12 + 1
-    day = min(value.day, calendar.monthrange(year, month)[1])
-    return value.replace(year=year, month=month, day=day)
+def _make_pdf(text):
+    content = f"BT /F1 12 Tf 30 100 Td ({text}) Tj ET".encode()
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        (
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 144] "
+            b"/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>"
+        ),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        b"<< /Length "
+        + str(len(content)).encode()
+        + b" >>\nstream\n"
+        + content
+        + b"\nendstream",
+    ]
+    pdf = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for index, obj in enumerate(objects, start=1):
+        offsets.append(len(pdf))
+        pdf.extend(f"{index} 0 obj\n".encode() + obj + b"\nendobj\n")
+    xref_offset = len(pdf)
+    pdf.extend(f"xref\n0 {len(offsets)}\n".encode())
+    pdf.extend(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        pdf.extend(f"{offset:010d} 00000 n \n".encode())
+    pdf.extend(
+        (
+            f"trailer\n<< /Size {len(offsets)} /Root 1 0 R >>\n"
+            f"startxref\n{xref_offset}\n%%EOF\n"
+        ).encode()
+    )
+    return bytes(pdf)

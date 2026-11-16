@@ -2,9 +2,12 @@
 
 {% block title %}Reports - Next Role{% endblock %}
 {% block content %}
-  <h1>Reports</h1>
+  <div class="page-heading">
+    <div><h1>Reports</h1><p>Application progress, outreach, and follow-up analytics.</p></div>
+    <a class="button" href="{% url 'task_list' %}">Task center</a>
+  </div>
   <section class="panel">
-    <h2>Applications by status</h2>
+    <h2>Application activity</h2>
     <form method="get" class="filter-form">
       <div>{{ form.start_date.label_tag }}{{ form.start_date }}{{ form.start_date.errors }}</div>
       <div>{{ form.end_date.label_tag }}{{ form.end_date }}{{ form.end_date.errors }}</div>
@@ -12,7 +15,7 @@
       <a class="button" href="{% url 'reports' %}">Clear</a>
     </form>
     {{ form.non_field_errors }}
-    <p class="muted">Counts include jobs whose applied date falls in the selected range and use their current status.</p>
+    <p class="muted">Application counts use applied date and current status. Funnel uses applications applied in this date range and counts each job at its furthest reached stage.</p>
     <div class="metric-row">
       <div class="metric"><span>Total applications</span><strong>{{ total_applications }}</strong></div>
       {% for item in status_counts %}
@@ -21,26 +24,71 @@
     </div>
   </section>
   <section class="panel">
-    <h2>Contacts to follow up with</h2>
-    <p class="muted">No recorded interaction since {{ cutoff_date }} (including contacts never contacted).</p>
-    {% if stale_contacts %}
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Contact</th><th>Company</th><th>Last interaction</th><th></th></tr></thead>
-          <tbody>
-            {% for contact in stale_contacts %}
-              <tr>
-                <td><a href="{% url 'contact_detail' contact.pk %}">{{ contact.full_name }}</a></td>
-                <td><a href="{% url 'company_detail' contact.company_id %}">{{ contact.company.name }}</a></td>
-                <td>{% if contact.last_contacted %}{{ contact.last_contacted|date:"Y-m-d" }}{% else %}Never{% endif %}</td>
-                <td><a class="button small" href="{% url 'interaction_create' contact.pk %}">Log interaction</a></td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    {% else %}
-      <p class="empty">Everyone has been contacted recently.</p>
-    {% endif %}
+    <h2>Application funnel</h2>
+    <p class="muted">Applied is the denominator; later-stage percentages show conversion from the previous funnel step.</p>
+    <div class="funnel">
+      {% for item in funnel %}
+        <div class="funnel-step">
+          <div class="funnel-label"><strong>{{ item.label }}</strong><span>{{ item.count }} · {{ item.percent }}%</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width: {{ item.percent }}%"></div></div>
+        </div>
+      {% endfor %}
+    </div>
   </section>
+  <section class="panel">
+    <h2>Weekly outbound interactions</h2>
+    <p class="muted">Outbound interactions in the selected date range, grouped by week and type.</p>
+    {% if weekly_outreach %}
+      <div class="outreach-chart">
+        {% for week in weekly_outreach %}
+          <div class="outreach-row">
+            <time>{{ week.week|date:"Y-m-d" }}</time>
+            <div class="stacked-bar" aria-label="{{ week.total }} interactions">
+              {% for item in week.counts %}
+                {% if item.count %}
+                  <span class="bar-segment kind-{{ item.kind }}" style="width: {{ item.percent }}%" title="{{ item.label }}: {{ item.count }}"></span>
+                {% endif %}
+              {% endfor %}
+            </div>
+            <strong>{{ week.total }}</strong>
+            <div class="outreach-legend">
+              {% for item in week.counts %}{% if item.count %}<span>{{ item.label }} {{ item.count }}</span>{% endif %}{% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}<p class="empty">No outbound interactions in this date range.</p>{% endif %}
+  </section>
+  <section class="panel">
+    <h2>Stale contacts</h2>
+    <p class="muted">Contacts without recent recorded interactions, including contacts never contacted.</p>
+    <div class="content-grid">
+      {% for bucket in stale_buckets %}
+        <div class="stale-bucket">
+          <h3>{{ bucket.days }}+ days <span class="count">{{ bucket.count }}</span></h3>
+          <ul class="item-list">
+            {% for contact in bucket.contacts|slice:":10" %}
+              <li>
+                <span>
+                  <a href="{% url 'contact_detail' contact.pk %}">{{ contact.full_name }}</a>
+                  <small>{{ contact.company.name }} · {% if contact.last_contacted_at %}{{ contact.last_contacted_at|date:"Y-m-d" }}{% else %}Never{% endif %}</small>
+                </span>
+                <button type="button" class="button small" data-open-interaction data-contact-id="{{ contact.pk }}">Log</button>
+              </li>
+            {% empty %}<li class="muted">No contacts in this bucket.</li>{% endfor %}
+          </ul>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+  <div class="content-grid">
+    <section class="panel task-widget">
+      <div class="section-heading"><h2>Overdue tasks</h2><a href="{% url 'task_list' %}">View all</a></div>
+      {% include "tracker/task_items.html" with tasks=overdue_tasks %}
+    </section>
+    <section class="panel task-widget">
+      <div class="section-heading"><h2>Upcoming tasks</h2><a href="{% url 'task_create' %}">Add task</a></div>
+      {% include "tracker/task_items.html" with tasks=upcoming_tasks %}
+    </section>
+  </div>
 {% endblock %}

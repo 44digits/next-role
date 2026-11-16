@@ -5,14 +5,20 @@ application stages, related documents, and follow-up reporting.
 
 ## Features
 
-- Kanban board grouping jobs by their current stage, with stage-change history.
+- Drag-and-drop kanban board grouping jobs by their current stage, with an
+  auditable status history and a combined activity feed.
 - Company records and links, jobs with posting and related links, and contacts
   associated with companies and optionally with multiple jobs.
-- Contact interaction history for email, phone calls, interviews, and other events.
-- PDF documents attached to each job (resume, application, cover letter, or other),
-  limited to 10 MB per file.
+- A filterable contact directory and global quick logger for outbound/inbound
+  email, LinkedIn messages, phone calls, interviews, and other interactions.
+- Follow-up tasks associated with a contact, a job, or both, with due dates,
+  completion tracking, and overdue/upcoming task views.
+- Multi-file PDF uploads attached to jobs (job descriptions, resumes, applications,
+  cover letters, or other documents), limited to 10 MB per file. Extracted PDF
+  text is searchable and documents can be previewed in the browser.
 - Reports for applications applied within a date range, grouped by current status,
-  and contacts without an interaction in the rolling six months.
+  pipeline conversion, weekly outbound activity by type, and contacts not
+  contacted within 30, 60, or 180 days.
 
 ## Local development
 
@@ -36,6 +42,7 @@ Run the test suite and lint checks with:
 ```sh
 uv run python manage.py test
 uv run ruff check .
+uv run ruff format --check .
 ```
 
 To select another Python release, update `.python-version` with `uv python pin
@@ -54,7 +61,7 @@ The application is available at <http://127.0.0.1:8000/>. Create the first login
 account in another terminal:
 
 ```sh
-docker compose exec web uv run python manage.py createsuperuser
+docker compose exec web /opt/venv/bin/python manage.py createsuperuser
 ```
 
 PostgreSQL data and uploaded PDFs are stored in named Docker volumes. Back up
@@ -92,4 +99,7 @@ There is no public registration flow. Create the initial user with Django's
 Each job belongs to a company and may have zero or more contacts from that
 company. A contact may be related to multiple jobs. Status transitions are
 preserved in history. Interactions belong to a contact and can optionally be
-linked to a job.
+linked to a job, provided that contact is associated with that job. Tasks may
+link to a contact, a job, or both. Each contact's last-contacted date is
+maintained from its interaction history. Uploaded PDFs and extracted text are
+stored separately so a future object-storage backend can replace local files.

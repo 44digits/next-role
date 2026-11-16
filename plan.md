@@ -74,6 +74,7 @@ erDiagram
         int contact_id FK
         int job_id FK "nullable"
         string kind
+        string direction
         datetime occurred_at
         text notes
     }
@@ -145,7 +146,7 @@ Each interaction belongs to one contact and may relate to one job. Each task may
 ## Notes and considerations
 
 - Keep application configuration externalized for future cloud deployment; do not bind the design to a particular cloud provider.
-- Use a controlled, configurable stage vocabulary that supports the pipeline states Wishlist, Job Found, Applied, Recruiter Screen, Interviewing, Offer Extended, Rejected, and Withdrawn; preserve historical transitions rather than only overwriting the current stage.
+- Use a controlled, code-defined stage vocabulary that supports the pipeline states Wishlist, Job Found, Applied, Recruiter Screen, Interviewing, Offer Extended, Rejected, and Withdrawn; preserve historical transitions rather than only overwriting the current stage. User-defined stages are outside the first-release scope.
 - Store interaction date, type (email, LinkedIn message, phone, interview, or other), notes, contact, and optional related job. The selected job must be associated with the selected contact.
 - Base the application report's date filter on the applied date and group by each application's current status at report time.
 - Calculate contact last-contacted dates from interaction records and keep the displayed/stored value synchronized when interactions are created, updated, or removed. Use calendar-day thresholds of 30, 60, and 180 days, and include contacts with no interaction history.

@@ -17,7 +17,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY . .
 RUN uv sync --frozen --no-dev \
-    && DJANGO_SECRET_KEY=build-only-secret uv run python manage.py collectstatic --noinput
+    && DJANGO_SECRET_KEY=build-only-secret /opt/venv/bin/python manage.py collectstatic --noinput
 
 EXPOSE 8000
 

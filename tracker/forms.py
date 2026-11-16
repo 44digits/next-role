@@ -8,6 +8,7 @@ from .models import (
     Job,
     JobDocument,
     JobLink,
+    Task,
 )
 
 
@@ -53,6 +54,26 @@ class ContactForm(StyledModelForm):
         widgets = {"notes": forms.Textarea(attrs={"rows": 4})}
 
 
+class ContactFilterForm(forms.Form):
+    company = forms.ModelChoiceField(queryset=Company.objects.all(), required=False)
+    role = forms.CharField(required=False)
+    inactivity = forms.ChoiceField(
+        required=False,
+        choices=[
+            ("", "Any last-contact date"),
+            ("30", "Not contacted in 30+ days"),
+            ("60", "Not contacted in 60+ days"),
+            ("180", "Not contacted in 180+ days"),
+            ("never", "Never contacted"),
+        ],
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "input"
+
+
 class JobForm(StyledModelForm):
     contacts = forms.ModelMultipleChoiceField(
         queryset=Contact.objects.none(),
@@ -67,7 +88,7 @@ class JobForm(StyledModelForm):
             "title",
             "posting_url",
             "location",
-            "salary",
+            "salary_range",
             "description",
             "notes",
             "status",
@@ -85,6 +106,10 @@ class JobForm(StyledModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["contacts"].queryset = Contact.objects.select_related("company")
+        if self.is_bound and self.data.get("company"):
+            self.fields["contacts"].queryset = self.fields["contacts"].queryset.filter(
+                company_id=self.data.get("company")
+            )
         if self.instance.pk:
             self.fields["contacts"].initial = self.instance.contacts.all()
 
@@ -105,6 +130,7 @@ class JobLinkForm(StyledModelForm):
 
 
 class InteractionForm(StyledModelForm):
+    contact = forms.ModelChoiceField(queryset=Contact.objects.none())
     occurred_at = forms.DateTimeField(
         input_formats=["%Y-%m-%dT%H:%M"],
         widget=forms.DateTimeInput(
@@ -114,23 +140,147 @@ class InteractionForm(StyledModelForm):
 
     class Meta:
         model = Interaction
-        fields = ["job", "kind", "occurred_at", "notes"]
+        fields = ["contact", "job", "kind", "direction", "occurred_at", "notes"]
         widgets = {"notes": forms.Textarea(attrs={"rows": 4})}
-
-    def __init__(self, *args, company_id: int, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["job"].queryset = Job.objects.filter(company_id=company_id)
-        self.fields["job"].required = False
-
-
-class JobDocumentForm(StyledModelForm):
-    class Meta:
-        model = JobDocument
-        fields = ["kind", "file"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["file"].widget.attrs["accept"] = ".pdf,application/pdf"
+        self.fields["contact"].queryset = Contact.objects.select_related("company")
+        contact_id = (
+            self.data.get("contact") if self.is_bound else self.initial.get("contact")
+        )
+        self.fields["job"].queryset = (
+            Job.objects.filter(contacts__pk=contact_id).distinct()
+            if contact_id
+            else Job.objects.none()
+        )
+        self.fields["job"].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        contact = cleaned_data.get("contact")
+        job = cleaned_data.get("job")
+        if contact and job and not job.contacts.filter(pk=contact.pk).exists():
+            self.add_error("job", "Choose a job linked to this contact.")
+        return cleaned_data
+
+
+class QuickInteractionForm(InteractionForm):
+    create_follow_up = forms.BooleanField(
+        required=False, label="Schedule follow-up task"
+    )
+    task_title = forms.CharField(max_length=200, required=False, label="Task")
+    task_due_at = forms.DateTimeField(
+        required=False,
+        input_formats=["%Y-%m-%dT%H:%M"],
+        widget=forms.DateTimeInput(
+            attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
+        ),
+    )
+    task_notes = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 2})
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get("create_follow_up"):
+            if not cleaned_data.get("task_title"):
+                self.add_error("task_title", "Enter a title for the follow-up task.")
+            if not cleaned_data.get("task_due_at"):
+                self.add_error("task_due_at", "Choose when the task is due.")
+        return cleaned_data
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    widget = MultipleFileInput
+
+    def clean(self, data, initial=None):
+        clean_one = super().clean
+        if isinstance(data, (list, tuple)):
+            return [clean_one(item, initial) for item in data]
+        if data:
+            return [clean_one(data, initial)]
+        if self.required:
+            return [clean_one(None, initial)]
+        return []
+
+
+class JobDocumentUploadForm(forms.Form):
+    kind = forms.ChoiceField(choices=JobDocument.Kind.choices)
+    files = MultipleFileField(
+        label="PDF files",
+        widget=MultipleFileInput(
+            attrs={"accept": ".pdf,application/pdf", "multiple": True}
+        ),
+    )
+
+    def clean_files(self):
+        import pdfplumber
+        from pdfminer.pdfdocument import PDFEncryptionError, PDFPasswordIncorrect
+        from pdfminer.pdfparser import PDFSyntaxError
+
+        files = self.cleaned_data["files"]
+        extracted = []
+        for upload in files:
+            for validator in JobDocument._meta.get_field("file").validators:
+                validator(upload)
+            upload.seek(0)
+            try:
+                with pdfplumber.open(upload) as pdf:
+                    text = "\n".join(
+                        page.extract_text() or "" for page in pdf.pages
+                    ).strip()
+            except (
+                PDFEncryptionError,
+                PDFPasswordIncorrect,
+                PDFSyntaxError,
+                ValueError,
+                OSError,
+            ) as exc:
+                raise forms.ValidationError(
+                    f"{upload.name} could not be read as a PDF."
+                ) from exc
+            finally:
+                upload.seek(0)
+            extracted.append((upload, text))
+        return extracted
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "input"
+
+
+class TaskForm(StyledModelForm):
+    due_at = forms.DateTimeField(
+        input_formats=["%Y-%m-%dT%H:%M"],
+        widget=forms.DateTimeInput(
+            attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
+        ),
+    )
+
+    class Meta:
+        model = Task
+        fields = ["title", "contact", "job", "due_at", "notes"]
+        widgets = {"notes": forms.Textarea(attrs={"rows": 3})}
+
+    def clean(self):
+        cleaned_data = super().clean()
+        contact = cleaned_data.get("contact")
+        job = cleaned_data.get("job")
+        if not contact and not job:
+            raise forms.ValidationError("Link the task to a contact, a job, or both.")
+        if contact and job and contact.company_id != job.company_id:
+            raise forms.ValidationError(
+                "The task's contact and job must belong to the same company."
+            )
+        if contact and job and not job.contacts.filter(pk=contact.pk).exists():
+            self.add_error("job", "Choose a job linked to this contact.")
+        return cleaned_data
 
 
 class ApplicationReportForm(forms.Form):
@@ -153,3 +303,11 @@ class ApplicationReportForm(forms.Form):
         if start_date and end_date and end_date < start_date:
             raise forms.ValidationError("End date must be on or after start date.")
         return cleaned_data
+
+
+class DocumentSearchForm(forms.Form):
+    query = forms.CharField(required=False, label="Search document text")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["query"].widget.attrs["class"] = "input"

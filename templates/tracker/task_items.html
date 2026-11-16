@@ -1,0 +1,18 @@
+<ul class="item-list">
+  {% for task in tasks %}
+    <li>
+      <span>
+        <strong>{{ task.title }}</strong>
+        <small>
+          Due {{ task.due_at|date:"Y-m-d H:i" }}
+          {% if task.contact %}· <a href="{% url 'contact_detail' task.contact_id %}">{{ task.contact.full_name }}</a>{% endif %}
+          {% if task.job %}· <a href="{% url 'job_detail' task.job_id %}">{{ task.job.title }}</a>{% endif %}
+        </small>
+      </span>
+      <form method="post" action="{% url 'task_toggle' task.pk %}">
+        {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}">
+        <button class="button small" type="submit">Complete</button>
+      </form>
+    </li>
+  {% empty %}<li class="muted">No tasks here.</li>{% endfor %}
+</ul>

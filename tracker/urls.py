@@ -25,6 +25,11 @@ urlpatterns = [
         name="job_document_download",
     ),
     path(
+        "jobs/<int:pk>/documents/<int:document_pk>/preview/",
+        views.job_document_preview,
+        name="job_document_preview",
+    ),
+    path(
         "jobs/<int:pk>/documents/<int:document_pk>/delete/",
         views.job_document_delete,
         name="job_document_delete",
@@ -52,5 +57,14 @@ urlpatterns = [
         views.interaction_create,
         name="interaction_create",
     ),
+    path(
+        "interactions/quick/",
+        views.quick_interaction,
+        name="quick_interaction",
+    ),
+    path("documents/search/", views.document_search, name="document_search"),
+    path("tasks/", views.task_list, name="task_list"),
+    path("tasks/new/", views.task_create, name="task_create"),
+    path("tasks/<int:pk>/toggle/", views.task_toggle, name="task_toggle"),
     path("reports/", views.reports, name="reports"),
 ]

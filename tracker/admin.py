@@ -10,6 +10,7 @@ from .models import (
     JobDocument,
     JobLink,
     JobStatusHistory,
+    Task,
 )
 
 
@@ -41,9 +42,42 @@ class JobAdmin(admin.ModelAdmin):
 
 @admin.register(Contact)
 class ContactAdmin(admin.ModelAdmin):
-    list_display = ["first_name", "last_name", "company", "email", "phone"]
+    list_display = [
+        "first_name",
+        "last_name",
+        "company",
+        "email",
+        "phone",
+        "last_contacted_at",
+    ]
     list_filter = ["company"]
     search_fields = ["first_name", "last_name", "company__name", "email"]
 
 
-admin.site.register([CompanyLink, Interaction, JobDocument, JobLink, JobStatusHistory])
+@admin.register(Interaction)
+class InteractionAdmin(admin.ModelAdmin):
+    list_display = ["contact", "job", "kind", "direction", "occurred_at"]
+    list_filter = ["kind", "direction"]
+    search_fields = ["contact__first_name", "contact__last_name", "job__title", "notes"]
+
+
+@admin.register(JobDocument)
+class JobDocumentAdmin(admin.ModelAdmin):
+    list_display = ["original_name", "job", "kind", "uploaded_at"]
+    list_filter = ["kind"]
+    search_fields = [
+        "original_name",
+        "job__title",
+        "job__company__name",
+        "extracted_text",
+    ]
+
+
+@admin.register(Task)
+class TaskAdmin(admin.ModelAdmin):
+    list_display = ["title", "contact", "job", "due_at", "completed_at"]
+    list_filter = ["completed_at"]
+    search_fields = ["title", "contact__first_name", "contact__last_name", "job__title"]
+
+
+admin.site.register([CompanyLink, JobLink, JobStatusHistory])

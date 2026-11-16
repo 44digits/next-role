@@ -7,17 +7,35 @@
     <a class="button primary" href="{% url 'contact_create' %}">Add contact</a>
   </div>
   <section class="panel">
+    <form method="get" class="filter-form">
+      <div>
+        <label for="{{ form.company.id_for_label }}">Company</label>
+        {{ form.company }}
+      </div>
+      <div>
+        <label for="{{ form.role.id_for_label }}">Role/title</label>
+        {{ form.role }}
+      </div>
+      <div>
+        <label for="{{ form.inactivity.id_for_label }}">Last contacted</label>
+        {{ form.inactivity }}
+      </div>
+      <button class="button primary" type="submit">Filter</button>
+      <a class="button" href="{% url 'contact_list' %}">Clear</a>
+    </form>
     {% if contacts %}
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Name</th><th>Company</th><th>Email</th><th>Last interaction</th></tr></thead>
+          <thead><tr><th>Name</th><th>Company</th><th>Role/title</th><th>Email</th><th>Last contacted</th><th></th></tr></thead>
           <tbody>
             {% for contact in contacts %}
               <tr>
                 <td><a href="{% url 'contact_detail' contact.pk %}">{{ contact.full_name }}</a></td>
                 <td><a href="{% url 'company_detail' contact.company_id %}">{{ contact.company.name }}</a></td>
+                <td>{{ contact.title|default:"—" }}</td>
                 <td>{% if contact.email %}<a href="mailto:{{ contact.email }}">{{ contact.email }}</a>{% else %}—{% endif %}</td>
-                <td>{% if contact.last_contacted %}{{ contact.last_contacted|date:"Y-m-d" }}{% else %}Never{% endif %}</td>
+                <td>{% if contact.last_contacted_at %}{{ contact.last_contacted_at|date:"Y-m-d" }}{% else %}Never{% endif %}</td>
+                <td><button type="button" class="button small" data-open-interaction data-contact-id="{{ contact.pk }}">Log interaction</button></td>
               </tr>
             {% endfor %}
           </tbody>

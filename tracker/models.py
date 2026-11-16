@@ -42,6 +42,7 @@ class Contact(models.Model):
     phone = models.CharField(max_length=40, blank=True)
     linkedin_url = models.URLField(blank=True)
     notes = models.TextField(blank=True)
+    last_contacted_at = models.DateTimeField(null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -57,20 +58,23 @@ class Contact(models.Model):
 
 class Job(models.Model):
     class Status(models.TextChoices):
+        WISHLIST = "wishlist", "Wishlist"
         FOUND = "found", "Job found"
         APPLIED = "applied", "Applied"
-        DENIED = "denied", "Denied"
+        RECRUITER_SCREEN = "recruiter_screen", "Recruiter screen"
+        INTERVIEWING = "interviewing", "Interviewing"
         HR_INTERVIEW = "hr_interview", "HR interview"
         TECHNICAL_INTERVIEW = "technical_interview", "Technical interview"
         OTHER_INTERVIEW = "other_interview", "Other interview"
-        OFFER = "offer", "Offer"
+        OFFER = "offer", "Offer extended"
+        DENIED = "denied", "Rejected"
         WITHDRAWN = "withdrawn", "Withdrawn"
 
     company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="jobs")
     title = models.CharField(max_length=200)
     posting_url = models.URLField()
     location = models.CharField(max_length=200, blank=True)
-    salary = models.CharField(max_length=120, blank=True)
+    salary_range = models.CharField(max_length=120, blank=True)
     description = models.TextField(blank=True)
     notes = models.TextField(blank=True)
     status = models.CharField(
@@ -95,6 +99,8 @@ class Job(models.Model):
         tracks_status = update_fields is None or "status" in update_fields
         applied_statuses = {
             self.Status.APPLIED,
+            self.Status.RECRUITER_SCREEN,
+            self.Status.INTERVIEWING,
             self.Status.DENIED,
             self.Status.HR_INTERVIEW,
             self.Status.TECHNICAL_INTERVIEW,
@@ -186,9 +192,14 @@ class JobLink(models.Model):
 class Interaction(models.Model):
     class Kind(models.TextChoices):
         EMAIL = "email", "Email"
+        LINKEDIN = "linkedin", "LinkedIn message"
         PHONE = "phone", "Phone call"
         INTERVIEW = "interview", "Interview"
         OTHER = "other", "Other"
+
+    class Direction(models.TextChoices):
+        OUTBOUND = "outbound", "Outbound"
+        INBOUND = "inbound", "Inbound"
 
     contact = models.ForeignKey(
         Contact, on_delete=models.CASCADE, related_name="interactions"
@@ -201,6 +212,9 @@ class Interaction(models.Model):
         blank=True,
     )
     kind = models.CharField(max_length=16, choices=Kind.choices)
+    direction = models.CharField(
+        max_length=12, choices=Direction.choices, default=Direction.OUTBOUND
+    )
     occurred_at = models.DateTimeField(default=timezone.now)
     notes = models.TextField(blank=True)
 
@@ -213,6 +227,38 @@ class Interaction(models.Model):
                 raise ValidationError(
                     {"job": "The selected job must belong to the contact's company."}
                 )
+            if not self.job.contacts.filter(pk=self.contact_id).exists():
+                raise ValidationError(
+                    {
+                        "job": (
+                            "Link the contact to the job before logging "
+                            "this interaction."
+                        )
+                    }
+                )
+
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            previous_contact_id = None
+            if self.pk:
+                previous_contact_id = (
+                    type(self)
+                    .objects.filter(pk=self.pk)
+                    .values_list("contact_id", flat=True)
+                    .first()
+                )
+            super().save(*args, **kwargs)
+            self._refresh_contact_dates(previous_contact_id, self.contact_id)
+
+    @staticmethod
+    def _refresh_contact_dates(*contact_ids):
+        for contact_id in set(filter(None, contact_ids)):
+            last_contacted_at = Interaction.objects.filter(
+                contact_id=contact_id
+            ).aggregate(latest=models.Max("occurred_at"))["latest"]
+            Contact.objects.filter(pk=contact_id).update(
+                last_contacted_at=last_contacted_at
+            )
 
     def __str__(self):
         return f"{self.get_kind_display()} with {self.contact}"
@@ -235,6 +281,7 @@ def job_document_upload_path(instance, filename):
 
 class JobDocument(models.Model):
     class Kind(models.TextChoices):
+        JOB_DESCRIPTION = "job_description", "Job description"
         RESUME = "resume", "Resume"
         APPLICATION = "application", "Job application"
         COVER_LETTER = "cover_letter", "Cover letter"
@@ -243,6 +290,7 @@ class JobDocument(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="documents")
     kind = models.CharField(max_length=20, choices=Kind.choices)
     original_name = models.CharField(max_length=255)
+    extracted_text = models.TextField(blank=True)
     file = models.FileField(
         upload_to=job_document_upload_path,
         validators=[FileExtensionValidator(["pdf"]), validate_pdf_upload],
@@ -254,3 +302,56 @@ class JobDocument(models.Model):
 
     def __str__(self):
         return f"{self.get_kind_display()} for {self.job}"
+
+
+class Task(models.Model):
+    title = models.CharField(max_length=200)
+    contact = models.ForeignKey(
+        Contact,
+        on_delete=models.CASCADE,
+        related_name="tasks",
+        null=True,
+        blank=True,
+    )
+    job = models.ForeignKey(
+        Job,
+        on_delete=models.CASCADE,
+        related_name="tasks",
+        null=True,
+        blank=True,
+    )
+    due_at = models.DateTimeField()
+    completed_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["completed_at", "due_at", "pk"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(contact__isnull=False) | models.Q(job__isnull=False)
+                ),
+                name="task_requires_job_or_contact",
+            )
+        ]
+
+    def clean(self):
+        if not self.contact_id and not self.job_id:
+            raise ValidationError("A task must be linked to a contact, a job, or both.")
+        if self.contact_id and self.job_id:
+            if self.contact.company_id != self.job.company_id:
+                raise ValidationError(
+                    "A task's contact and job must belong to the same company."
+                )
+            if not self.job.contacts.filter(pk=self.contact_id).exists():
+                raise ValidationError(
+                    "Link the contact to the job before creating this task."
+                )
+
+    @property
+    def is_completed(self):
+        return self.completed_at is not None
+
+    def __str__(self):
+        return self.title

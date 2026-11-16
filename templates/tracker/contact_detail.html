@@ -9,7 +9,7 @@
       {% if contact.title %}<p>{{ contact.title }}</p>{% endif %}
     </div>
     <div class="button-row">
-      <a class="button primary" href="{% url 'interaction_create' contact.pk %}">Record interaction</a>
+      <button type="button" class="button primary" data-open-interaction data-contact-id="{{ contact.pk }}">Record interaction</button>
       <a class="button" href="{% url 'contact_update' contact.pk %}">Edit contact</a>
     </div>
   </div>
@@ -19,8 +19,25 @@
       <dt>Email</dt><dd>{% if contact.email %}<a href="mailto:{{ contact.email }}">{{ contact.email }}</a>{% else %}—{% endif %}</dd>
       <dt>Phone</dt><dd>{% if contact.phone %}<a href="tel:{{ contact.phone }}">{{ contact.phone }}</a>{% else %}—{% endif %}</dd>
       <dt>LinkedIn</dt><dd>{% if contact.linkedin_url %}<a href="{{ contact.linkedin_url }}" target="_blank" rel="noopener noreferrer">{{ contact.linkedin_url }}</a>{% else %}—{% endif %}</dd>
+      <dt>Last contacted</dt><dd>{% if contact.last_contacted_at %}{{ contact.last_contacted_at|date:"Y-m-d H:i" }}{% else %}Never{% endif %}</dd>
       <dt>Notes</dt><dd>{{ contact.notes|linebreaksbr|default:"—" }}</dd>
     </dl>
+  </section>
+  <section class="panel">
+    <div class="section-heading"><h2>Follow-up tasks</h2><a class="button small" href="{% url 'task_create' %}?contact={{ contact.pk }}">Add task</a></div>
+    <ul class="item-list">
+      {% for task in contact.tasks.all %}
+        <li>
+          <span><strong>{{ task.title }}</strong><small>Due {{ task.due_at|date:"Y-m-d H:i" }}</small></span>
+          {% if not task.completed_at %}
+            <form method="post" action="{% url 'task_toggle' task.pk %}">
+              {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}">
+              <button class="button small" type="submit">Complete</button>
+            </form>
+          {% else %}<span class="badge">Completed</span>{% endif %}
+        </li>
+      {% empty %}<li class="muted">No tasks for this contact.</li>{% endfor %}
+    </ul>
   </section>
   <section class="panel">
     <h2>Related jobs</h2>

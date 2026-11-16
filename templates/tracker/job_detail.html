@@ -18,7 +18,7 @@
     <dl class="details">
       <dt>Found</dt><dd>{{ job.found_on }}</dd>
       <dt>Applied</dt><dd>{{ job.applied_on|default:"—" }}</dd>
-      <dt>Salary</dt><dd>{{ job.salary|default:"—" }}</dd>
+      <dt>Salary range</dt><dd>{{ job.salary_range|default:"—" }}</dd>
       <dt>Description</dt><dd>{{ job.description|linebreaksbr|default:"—" }}</dd>
       <dt>Notes</dt><dd>{{ job.notes|linebreaksbr|default:"—" }}</dd>
     </dl>
@@ -47,11 +47,15 @@
     </section>
   </div>
   <section class="panel">
-    <div class="section-heading"><h2>Documents</h2><a class="button small" href="{% url 'job_document_upload' job.pk %}">Add PDF</a></div>
+    <div class="section-heading"><h2>Documents</h2><a class="button small" href="{% url 'job_document_upload' job.pk %}">Add PDFs</a></div>
     <ul class="item-list">
       {% for document in job.documents.all %}
         <li>
-          <span><a href="{% url 'job_document_download' job.pk document.pk %}">{{ document.original_name }}</a> <span class="badge">{{ document.get_kind_display }}</span></span>
+          <span>
+            <a href="{% url 'job_document_preview' job.pk document.pk %}" target="_blank" rel="noopener noreferrer">{{ document.original_name }}</a>
+            <span class="badge">{{ document.get_kind_display }}</span>
+            <a class="button small" href="{% url 'job_document_download' job.pk document.pk %}">Download</a>
+          </span>
           <form method="post" action="{% url 'job_document_delete' job.pk document.pk %}">
             {% csrf_token %}<button class="text-button danger" type="submit">Delete</button>
           </form>
@@ -59,31 +63,37 @@
       {% empty %}<li class="muted">No documents uploaded.</li>{% endfor %}
     </ul>
   </section>
-  <div class="content-grid">
-    <section class="panel">
-      <h2>Status history</h2>
-      <ul class="timeline">
-        {% for change in job.status_history.all %}
-          <li>
-            {% if change.from_status %}<span>{{ change.get_from_status_display }} → </span>{% endif %}
-            <strong>{{ change.get_to_status_display }}</strong>
-            <time>{{ change.changed_at|date:"Y-m-d H:i" }}</time>
-          </li>
-        {% empty %}<li class="muted">No stage history yet.</li>{% endfor %}
-      </ul>
-    </section>
-    <section class="panel">
-      <h2>Job interactions</h2>
-      <ul class="timeline">
-        {% for interaction in interactions %}
-          <li>
-            <strong>{{ interaction.get_kind_display }}</strong> with
-            <a href="{% url 'contact_detail' interaction.contact_id %}">{{ interaction.contact.full_name }}</a>
-            <time>{{ interaction.occurred_at|date:"Y-m-d H:i" }}</time>
-            {% if interaction.notes %}<p>{{ interaction.notes|linebreaksbr }}</p>{% endif %}
-          </li>
-        {% empty %}<li class="muted">No interactions linked to this job.</li>{% endfor %}
-      </ul>
-    </section>
-  </div>
+  <section class="panel">
+    <h2>Activity</h2>
+    <ul class="timeline">
+      {% for item in activity %}
+        <li>
+          {% if item.kind == "status" %}
+            <strong>Status changed</strong>:
+            {% if item.entry.from_status %}{{ item.entry.get_from_status_display }} → {% endif %}{{ item.entry.get_to_status_display }}
+            <time>{{ item.timestamp|date:"Y-m-d H:i" }}</time>
+          {% else %}
+            <strong>{{ item.entry.get_direction_display }} {{ item.entry.get_kind_display }}</strong> with
+            <a href="{% url 'contact_detail' item.entry.contact_id %}">{{ item.entry.contact.full_name }}</a>
+            <time>{{ item.timestamp|date:"Y-m-d H:i" }}</time>
+            {% if item.entry.notes %}<p>{{ item.entry.notes|linebreaksbr }}</p>{% endif %}
+          {% endif %}
+        </li>
+      {% empty %}<li class="muted">No activity recorded.</li>{% endfor %}
+    </ul>
+  </section>
+  <section class="panel">
+    <div class="section-heading"><h2>Tasks</h2><a class="button small" href="{% url 'task_create' %}?job={{ job.pk }}">Add task</a></div>
+    <ul class="item-list">
+      {% for task in open_tasks %}
+        <li>
+          <span><strong>{{ task.title }}</strong><small>Due {{ task.due_at|date:"Y-m-d H:i" }}</small></span>
+          <form method="post" action="{% url 'task_toggle' task.pk %}">
+            {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}">
+            <button class="button small" type="submit">Complete</button>
+          </form>
+        </li>
+      {% empty %}<li class="muted">No open tasks for this job.</li>{% endfor %}
+    </ul>
+  </section>
 {% endblock %}

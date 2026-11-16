@@ -441,6 +441,186 @@ th {
   clip-path: inset(50%);
 }
 
+.quick-dialog {
+  width: min(720px, calc(100% - 2rem));
+  max-height: 90vh;
+  padding: 1.4rem;
+  border: 1px solid #d5e0e6;
+  border-radius: 0.8rem;
+  box-shadow: 0 16px 60px rgb(15 35 50 / 25%);
+}
+
+.quick-dialog::backdrop {
+  background: rgb(16 34 47 / 52%);
+}
+
+.dialog-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 1rem;
+}
+
+.form-grid p {
+  margin-bottom: 0.8rem;
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.checkbox-label input {
+  width: auto;
+}
+
+.follow-up-fields {
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  background: #f2f6f8;
+  border-radius: 0.55rem;
+}
+
+.follow-up-fields[hidden] {
+  display: none;
+}
+
+.follow-up-fields p:last-child {
+  margin-bottom: 0;
+}
+
+.task-widget small,
+.item-list small {
+  display: block;
+  margin-top: 0.2rem;
+  color: #61717e;
+  font-size: 0.82rem;
+}
+
+.kanban-column.drop-target {
+  background: #deedf5;
+  outline: 2px dashed #4386aa;
+}
+
+.job-card[draggable="true"] {
+  cursor: grab;
+}
+
+.job-card.dragging {
+  opacity: 0.5;
+}
+
+.funnel {
+  display: grid;
+  gap: 1rem;
+  max-width: 760px;
+}
+
+.funnel-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.35rem;
+}
+
+.funnel-label span {
+  color: #61717e;
+}
+
+.bar-track,
+.stacked-bar {
+  overflow: hidden;
+  height: 0.75rem;
+  background: #e8eef1;
+  border-radius: 999px;
+}
+
+.bar-fill {
+  height: 100%;
+  background: #14658f;
+  border-radius: inherit;
+}
+
+.outreach-chart {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.outreach-row {
+  display: grid;
+  grid-template-columns: 90px minmax(100px, 1fr) 35px;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.outreach-row time {
+  color: #526673;
+  font-size: 0.86rem;
+}
+
+.stacked-bar {
+  display: flex;
+}
+
+.bar-segment {
+  height: 100%;
+}
+
+.kind-email {
+  background: #14658f;
+}
+
+.kind-linkedin {
+  background: #5b62a5;
+}
+
+.kind-phone {
+  background: #3b8c6e;
+}
+
+.kind-interview {
+  background: #c28a2b;
+}
+
+.kind-other {
+  background: #7e8d98;
+}
+
+.outreach-legend {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 2 / -1;
+  gap: 0.5rem 1rem;
+  color: #61717e;
+  font-size: 0.8rem;
+}
+
+.stale-bucket {
+  min-width: 0;
+}
+
+.stale-bucket h3 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.search-field {
+  flex: 1;
+}
+
 @media (max-width: 760px) {
   .topbar,
   .page-heading {
@@ -454,6 +634,18 @@ th {
 
   .content-grid {
     grid-template-columns: 1fr;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .full-width {
+    grid-column: auto;
+  }
+
+  .outreach-row {
+    grid-template-columns: 75px minmax(70px, 1fr) 30px;
   }
 
   .page {

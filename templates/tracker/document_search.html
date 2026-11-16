@@ -1,0 +1,35 @@
+{% extends "tracker/base.html" %}
+
+{% block title %}Document search - Next Role{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <div><h1>Document search</h1><p>Search PDF text and document details across your jobs.</p></div>
+  </div>
+  <section class="panel">
+    <form method="get" class="filter-form">
+      <div class="search-field">
+        <label for="{{ form.query.id_for_label }}">{{ form.query.label }}</label>
+        {{ form.query }}
+      </div>
+      <button class="button primary" type="submit">Search</button>
+    </form>
+  </section>
+  <section class="panel">
+    {% if request.GET.query %}
+      <h2>Results</h2>
+      <ul class="item-list">
+        {% for document in documents %}
+          <li>
+            <span>
+              <a href="{% url 'job_document_preview' document.job_id document.pk %}" target="_blank" rel="noopener noreferrer">{{ document.original_name }}</a>
+              <small><a href="{% url 'job_detail' document.job_id %}">{{ document.job.title }}</a> · {{ document.job.company.name }} · {{ document.get_kind_display }}</small>
+            </span>
+            <a class="button small" href="{% url 'job_document_download' document.job_id document.pk %}">Download</a>
+          </li>
+        {% empty %}<li class="muted">No matching documents.</li>{% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty">Enter a keyword to search extracted PDF text, file names, jobs, and companies.</p>
+    {% endif %}
+  </section>
+{% endblock %}

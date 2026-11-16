@@ -1,0 +1,38 @@
+{% extends "tracker/base.html" %}
+
+{% block title %}Tasks - Next Role{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <div><h1>Task center</h1><p>Overdue, upcoming, and completed follow-ups.</p></div>
+    <a class="button primary" href="{% url 'task_create' %}">Add task</a>
+  </div>
+  <section class="panel task-widget">
+    <h2>Overdue</h2>
+    {% include "tracker/task_items.html" with tasks=overdue_tasks %}
+  </section>
+  <section class="panel task-widget">
+    <h2>Upcoming</h2>
+    {% include "tracker/task_items.html" with tasks=upcoming_tasks %}
+  </section>
+  <section class="panel">
+    <h2>Completed</h2>
+    <ul class="item-list">
+      {% for task in completed_tasks %}
+        <li>
+          <span>
+            <strong>{{ task.title }}</strong>
+            <small>
+              Completed {{ task.completed_at|date:"Y-m-d H:i" }}
+              {% if task.contact %}· <a href="{% url 'contact_detail' task.contact_id %}">{{ task.contact.full_name }}</a>{% endif %}
+              {% if task.job %}· <a href="{% url 'job_detail' task.job_id %}">{{ task.job.title }}</a>{% endif %}
+            </small>
+          </span>
+          <form method="post" action="{% url 'task_toggle' task.pk %}">
+            {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}">
+            <button class="button small" type="submit">Reopen</button>
+          </form>
+        </li>
+      {% empty %}<li class="muted">No completed tasks.</li>{% endfor %}
+    </ul>
+  </section>
+{% endblock %}
