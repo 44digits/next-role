@@ -64,6 +64,7 @@ db.sqlite3-journal
 media/
 staticfiles/
 /data/
+/job_fetcher/adapters/
 
 # Flask stuff:
 instance/

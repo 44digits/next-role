@@ -11,7 +11,7 @@ page's cursor as a `cursor` query parameter. It expects the feed to return a
 
 ## Adapter
 
-Save this as `src/job_fetcher/json_feed_adapter.py`:
+Save this as `adapters/json_feed.py`:
 
 ```python
 import json
@@ -19,9 +19,9 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
-from .adapters import SiteScrapeError
-from .config import SiteConfig
-from .models import JobPosting, PostingPage
+from job_fetcher.adapters import AdapterRegistry, SiteScrapeError
+from job_fetcher.config import SiteConfig
+from job_fetcher.models import JobPosting, PostingPage
 
 
 class JsonFeedAdapter:
@@ -103,30 +103,21 @@ class JsonFeedAdapter:
             )
 
         return PostingPage(tuple(postings), next_cursor=next_cursor)
+
+
+def register(registry: AdapterRegistry) -> None:
+    registry.register("json_feed", JsonFeedAdapter())
 ```
 
 `search_inputs` values in this example must be strings, numbers, or booleans.
 The adapter translates request and parsing failures into `SiteScrapeError`, so
 the runner can log the site failure and continue to other sites.
 
-## Register the adapter
-
-Add the import and registration in `build_adapter_registry` in
-`src/job_fetcher/cli.py`:
-
-```python
-from .json_feed_adapter import JsonFeedAdapter
-
-
-def build_adapter_registry() -> AdapterRegistry:
-    registry = AdapterRegistry()
-    registry.register("json_feed", JsonFeedAdapter())
-    return registry
-```
-
 ## Example configuration
 
-The `adapter` value must match the name passed to `registry.register`:
+The fetcher loads Python modules in `adapters/` and invokes each module's
+`register` function. The `adapter` value must match the name passed to
+`registry.register`:
 
 ```json
 {

@@ -16,7 +16,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
-COPY src ./src
+COPY . .
 RUN groupadd --system fetcher \
     && useradd --system --gid fetcher --create-home fetcher
 

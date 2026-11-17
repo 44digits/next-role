@@ -172,8 +172,9 @@ expire automatically; revoke or rotate them manually.
 The separate Python job fetcher is a one-shot container. It reads its company,
 site, keyword, and location criteria as JSON from standard input, then submits
 matching postings through the authenticated job import API. It does not access
-PostgreSQL directly. Site-specific adapters must be implemented for the target
-job sites; no initial site list has been selected yet.
+PostgreSQL directly. Local adapter plugins are loaded from
+`job_fetcher/adapters/`, which is excluded from Git. The directory must be
+present in the build context to include those plugins in the container.
 
 The container is available as an opt-in Compose profile. Start the tracker
 services, set `JOB_IMPORT_API_TOKEN` to the dedicated scraper service user's

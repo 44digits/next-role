@@ -16,8 +16,10 @@ are skipped, while an unknown posting location is included and logged.
 
 Each site specifies an adapter identifier and URL. Optional `search_inputs`
 are passed to that adapter for site-specific fields such as country or location.
-`max_pages` defaults to 100 and bounds pagination. Site adapters are registered
-in the Python application; no company or job-site list is baked into the image.
+`max_pages` defaults to 100 and bounds pagination. Site adapters are Python
+modules in the project-level `adapters/` directory; each module must define a
+`register(registry)` function. The directory is Git-ignored, so adapter code is
+local to the working tree and must be present in the Docker build context.
 
 Example configuration (replace the adapter identifier after an adapter has
 been implemented):
@@ -83,12 +85,12 @@ secrets.
 
 ## Adapters, errors, and logs
 
-Implement a `SiteAdapter.fetch_page(site, cursor)` adapter that returns a
-`PostingPage` with postings and an optional next cursor. Register each supported
-adapter in `build_adapter_registry`. Prefer a site's documented public API/feed;
-otherwise implement site-specific HTML retrieval and parsing. Adapters should
-raise `SiteScrapeError` for request or parsing failures. Do not bypass login,
-anti-bot controls, site terms, robots guidance, or rate limits.
+Implement `SiteAdapter.fetch_page(site, cursor)` in a Python module under
+`adapters/`, then register it with the module's `register(registry)` function.
+Prefer a site's documented public API/feed; otherwise implement site-specific
+HTML retrieval and parsing. Adapters should raise `SiteScrapeError` for request
+or parsing failures. Do not bypass login, anti-bot controls, site terms, robots
+guidance, or rate limits.
 
 See [example.md](./example.md) for a generic JSON-feed adapter, its registration,
 and matching configuration and response examples.

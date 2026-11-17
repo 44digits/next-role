@@ -2,6 +2,8 @@ import logging
 import os
 import sys
 from collections.abc import Mapping
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
 from uuid import uuid4
 
 from .adapters import AdapterRegistry
@@ -12,8 +14,37 @@ from .models import RunSummary
 from .runner import JobFetcher
 
 
-def build_adapter_registry() -> AdapterRegistry:
-    return AdapterRegistry()
+def build_adapter_registry(
+    adapter_directory: Path | None = None,
+) -> AdapterRegistry:
+    registry = AdapterRegistry()
+    if adapter_directory is None:
+        adapter_directory = Path(__file__).resolve().parents[2] / "adapters"
+    if not adapter_directory.is_dir():
+        return registry
+
+    for path in sorted(adapter_directory.glob("*.py")):
+        if path.name.startswith("_"):
+            continue
+        module_name = f"_job_fetcher_adapter_{path.stem}"
+        spec = spec_from_file_location(module_name, path)
+        if spec is None or spec.loader is None:
+            raise ConfigurationError(f"Cannot load local adapter module {path.name!r}.")
+        module = module_from_spec(spec)
+        try:
+            spec.loader.exec_module(module)
+        except (ImportError, OSError, SyntaxError) as error:
+            raise ConfigurationError(
+                f"Cannot import local adapter module {path.name!r}: {error}"
+            ) from error
+
+        register = getattr(module, "register", None)
+        if not callable(register):
+            raise ConfigurationError(
+                f"Local adapter module {path.name!r} must define register(registry)."
+            )
+        register(registry)
+    return registry
 
 
 def run_config(
