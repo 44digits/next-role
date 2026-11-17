@@ -166,3 +166,29 @@ uv run python manage.py drf_create_token job-scraper
 Send the token in the `Authorization: Token <service-token>` header over HTTPS.
 Store it in the companion application's deployment secrets. Tokens do not
 expire automatically; revoke or rotate them manually.
+
+## Job Fetcher
+
+The separate Python job fetcher is a one-shot container. It reads its company,
+site, keyword, and location criteria as JSON from standard input, then submits
+matching postings through the authenticated job import API. It does not access
+PostgreSQL directly. Site-specific adapters must be implemented for the target
+job sites; no initial site list has been selected yet.
+
+The container is available as an opt-in Compose profile. Start the tracker
+services, set `JOB_IMPORT_API_TOKEN` to the dedicated scraper service user's
+token, then pipe the JSON configuration into one run:
+
+```sh
+docker compose up --build -d
+export JOB_IMPORT_API_TOKEN='replace-with-service-token'
+docker compose --profile job-fetcher run --rm -T --no-deps job_fetcher \
+  < /path/to/job-fetcher-config.json
+```
+
+The local host can run that command from cron. For future cloud scheduling,
+`job_fetcher.lambda_handler.handler` accepts the same JSON object as an
+invocation event. Logs are structured JSON on stdout; the runner continues past
+site failures, summarizes results, and exits nonzero if any site or posting
+failed. See [job_fetcher/README.md](./job_fetcher/README.md) for the config
+shape, adapter contract, test commands, and operational details.

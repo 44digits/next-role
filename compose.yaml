@@ -35,3 +35,12 @@ services:
       - "${WEB_PORT:-8000}:8000"
     volumes:
       - ./data/media:/app/media
+
+  job_fetcher:
+    profiles:
+      - job-fetcher
+    build:
+      context: ./job_fetcher
+    environment:
+      JOB_IMPORT_API_URL: ${JOB_IMPORT_API_URL:-http://web:8000}
+      JOB_IMPORT_API_TOKEN: ${JOB_IMPORT_API_TOKEN:-}
