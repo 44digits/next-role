@@ -7,6 +7,7 @@ urlpatterns = [
     path("jobs/new/", views.job_create, name="job_create"),
     path("jobs/<int:pk>/", views.job_detail, name="job_detail"),
     path("jobs/<int:pk>/edit/", views.job_update, name="job_update"),
+    path("jobs/<int:pk>/delete/", views.job_delete, name="job_delete"),
     path("jobs/<int:pk>/status/", views.job_change_status, name="job_change_status"),
     path("jobs/<int:pk>/links/new/", views.job_link_create, name="job_link_create"),
     path(

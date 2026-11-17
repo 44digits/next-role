@@ -106,6 +106,7 @@ Every interaction belongs to exactly one job and may involve zero or one contact
 - Track the current application stage and preserve stage-change history.
 - Provide a drag-and-drop kanban jobs board with the stages Job Found, Applied, Acknowledged, Recruiter Screen, Interview, Offer Extended, and Rejected. Moving a card changes its status and creates an audit-history entry.
 - Provide a detailed job view with company and position details, salary range, work location, attached documents with PDF preview, associated contacts, and a chronological feed combining status changes and interactions.
+- Provide a confirmed delete action on the job detail page that removes the job and its related records and uploaded PDF files.
 - Keep salary range and location optional; store job and company URLs as related links rather than columns on their parent records.
 - Model companies, jobs, contacts, and interactions so each job can have zero or more contacts; allow contacts to be associated with multiple jobs at the same company.
 - Support job/application documents such as resumes and submitted application files.

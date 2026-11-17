@@ -7,6 +7,8 @@ application stages, related documents, and application/outreach reporting.
 
 - Drag-and-drop kanban board grouping jobs by their current stage, with an
   auditable status history and a combined activity feed.
+- Job detail pages include a confirmed delete action that removes the job's
+  history, interactions, links, documents, and uploaded PDF files.
 - Company records and links, jobs with posting and related links, and contacts
   associated with companies and optionally with multiple jobs.
 - A filterable contact directory and global quick logger for email, LinkedIn

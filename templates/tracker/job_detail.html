@@ -11,6 +11,9 @@
     <div class="button-row">
       <a class="button primary" href="{% url 'job_update' job.pk %}">Edit job</a>
       {% if posting_link %}<a class="button" href="{{ posting_link.url }}" target="_blank" rel="noopener noreferrer">Open posting</a>{% endif %}
+      <form method="post" action="{% url 'job_delete' job.pk %}" onsubmit="return confirm('Delete this job and all its history, interactions, and documents? This cannot be undone.');">
+        {% csrf_token %}<button class="button danger" type="submit">Delete job</button>
+      </form>
     </div>
   </div>
   <section class="panel">

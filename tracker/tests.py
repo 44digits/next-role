@@ -163,6 +163,50 @@ class TrackerViewTests(TestCase):
         self.assertEqual(self.job.status, Job.Status.APPLIED)
         self.assertEqual(self.job.status_history.count(), 2)
 
+    def test_job_detail_can_delete_job_and_attached_data(self):
+        contact = Contact.objects.create(
+            company=self.company, first_name="Casey", last_name="Recruiter"
+        )
+        JobContact.objects.create(job=self.job, contact=contact)
+        interaction = Interaction.objects.create(
+            job=self.job,
+            contact=contact,
+            kind=Interaction.Kind.EMAIL,
+        )
+
+        with tempfile.TemporaryDirectory() as media_root:
+            with override_settings(MEDIA_ROOT=media_root):
+                upload = SimpleUploadedFile(
+                    "resume.pdf",
+                    _make_pdf("sample document"),
+                    content_type="application/pdf",
+                )
+                self.client.post(
+                    reverse("job_document_upload", args=[self.job.pk]),
+                    {"kind": JobDocument.Kind.RESUME, "files": [upload]},
+                )
+                document = JobDocument.objects.get()
+                file_name = document.file.name
+                self.assertTrue(document.file.storage.exists(file_name))
+
+                response = self.client.get(reverse("job_detail", args=[self.job.pk]))
+                self.assertContains(response, "Delete job")
+
+                response = self.client.get(reverse("job_delete", args=[self.job.pk]))
+                self.assertEqual(response.status_code, 405)
+
+                response = self.client.post(reverse("job_delete", args=[self.job.pk]))
+
+                self.assertRedirects(response, reverse("board"))
+                self.assertFalse(Job.objects.filter(pk=self.job.pk).exists())
+                self.assertFalse(
+                    JobStatusHistory.objects.filter(job_id=self.job.pk).exists()
+                )
+                self.assertFalse(Interaction.objects.filter(pk=interaction.pk).exists())
+                self.assertFalse(JobDocument.objects.filter(pk=document.pk).exists())
+                self.assertFalse(document.file.storage.exists(file_name))
+                self.assertTrue(Contact.objects.filter(pk=contact.pk).exists())
+
     def test_job_form_associates_company_contact(self):
         contact = Contact.objects.create(
             company=self.company, first_name="Casey", last_name="Recruiter"

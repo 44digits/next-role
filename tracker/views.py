@@ -126,6 +126,17 @@ def job_update(request, pk):
 
 @login_required
 @require_POST
+def job_delete(request, pk):
+    job = get_object_or_404(Job.objects.prefetch_related("documents"), pk=pk)
+    for document in job.documents.all():
+        document.file.delete(save=False)
+    job.delete()
+    messages.success(request, "Job deleted.")
+    return redirect("board")
+
+
+@login_required
+@require_POST
 def job_change_status(request, pk):
     job = get_object_or_404(Job, pk=pk)
     status = request.POST.get("status", "")
