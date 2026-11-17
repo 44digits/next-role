@@ -114,16 +114,10 @@ class JobForm(StyledModelForm):
         fields = [
             "company",
             "title",
-            "location",
-            "salary_range",
-            "description",
             "notes",
             "contacts",
         ]
-        widgets = {
-            "description": forms.Textarea(attrs={"rows": 5}),
-            "notes": forms.Textarea(attrs={"rows": 4}),
-        }
+        widgets = {"notes": forms.Textarea(attrs={"rows": 4})}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

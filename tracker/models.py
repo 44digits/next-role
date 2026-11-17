@@ -67,9 +67,6 @@ class Job(models.Model):
 
     company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="jobs")
     title = models.CharField(max_length=200)
-    location = models.CharField(max_length=200, blank=True)
-    salary_range = models.CharField(max_length=120, blank=True)
-    description = models.TextField(blank=True)
     notes = models.TextField(blank=True)
     contacts = models.ManyToManyField(
         Contact, through="JobContact", related_name="jobs", blank=True

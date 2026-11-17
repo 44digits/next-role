@@ -6,7 +6,6 @@
     <div>
       <p class="eyebrow"><a href="{% url 'company_detail' job.company_id %}">{{ job.company.name }}</a> · {{ job.get_status_display }}</p>
       <h1>{{ job.title }}</h1>
-      {% if job.location %}<p>{{ job.location }}</p>{% endif %}
     </div>
     <div class="button-row">
       <a class="button primary" href="{% url 'job_update' job.pk %}">Edit job</a>
@@ -17,12 +16,8 @@
     </div>
   </div>
   <section class="panel">
-    <h2>Opportunity</h2>
-    <dl class="details">
-      <dt>Salary range</dt><dd>{{ job.salary_range|default:"—" }}</dd>
-      <dt>Description</dt><dd>{{ job.description|linebreaksbr|default:"—" }}</dd>
-      <dt>Notes</dt><dd>{{ job.notes|linebreaksbr|default:"—" }}</dd>
-    </dl>
+    <h2>Notes</h2>
+    <p>{{ job.notes|linebreaksbr|default:"—" }}</p>
   </section>
   <div class="content-grid">
     <section class="panel">
