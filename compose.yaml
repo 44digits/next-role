@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: ${DB_USER:-next_role}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-local-only-change-me}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
       test:
         - CMD-SHELL
@@ -34,10 +34,4 @@ services:
     ports:
       - "${WEB_PORT:-8000}:8000"
     volumes:
-      - media_data:/app/media
-
-volumes:
-  postgres_data:
-    name: next-role_postgres_data
-  media_data:
-    name: next-role_media_data
+      - ./data/media:/app/media
