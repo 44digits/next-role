@@ -4,7 +4,8 @@
 {% block content %}
   <div class="page-heading">
     <div>
-      <p class="eyebrow"><a href="{% url 'company_detail' job.company_id %}">{{ job.company.name }}</a> · {{ job.get_status_display }}</p>
+      <p class="job-company-name"><a href="{% url 'company_detail' job.company_id %}">{{ job.company.name }}</a></p>
+      <p class="eyebrow">{{ job.get_status_display }}</p>
       <h1>{{ job.title }}</h1>
     </div>
     <div class="button-row">
