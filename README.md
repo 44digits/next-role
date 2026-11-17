@@ -6,6 +6,11 @@
 ![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![uv 0.13.8](https://img.shields.io/badge/uv-0.13.8-DE5FE9)
 ![pdfplumber 0.11.10](https://img.shields.io/badge/pdfplumber-0.11.10-7A3E9D)
+[![License: MIT](https://img.shields.io/github/license/44digits/next-role)](https://github.com/44digits/next-role/blob/develop/LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/44digits/next-role)](https://github.com/44digits/next-role/commits/develop)
+[![Open issues](https://img.shields.io/github/issues/44digits/next-role)](https://github.com/44digits/next-role/issues)
+[![Pull requests](https://img.shields.io/github/issues-pr/44digits/next-role)](https://github.com/44digits/next-role/pulls)
+[![GitHub stars](https://img.shields.io/github/stars/44digits/next-role)](https://github.com/44digits/next-role/stargazers)
 
 A private, single-user job application tracker for opportunities, company contacts,
 application stages, related documents, and application/outreach reporting.
