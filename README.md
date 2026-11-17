@@ -157,11 +157,27 @@ Example request body:
 
 The endpoint uses Django REST Framework token authentication. Create an active,
 non-staff service user and grant it the `Can import job postings via the API`
-permission (for example, through Django admin). Generate its token with:
+permission (for example, through Django admin). Generate its token against the
+same database where that user was created.
+
+If you created the user in the Compose app, run this while its `web` service is
+running. It uses the same PostgreSQL database as the app:
 
 ```sh
+docker compose exec web /opt/venv/bin/python manage.py drf_create_token job-scraper
+```
+
+For host-based local development, the project uses SQLite unless `DB_HOST` is
+set. Ensure the user exists in that database, then run with local settings:
+
+```sh
+export DJANGO_DEBUG=true
+export DJANGO_SECRET_KEY='local-only-development-secret'
 uv run python manage.py drf_create_token job-scraper
 ```
+
+Without `DJANGO_SECRET_KEY` (or `DJANGO_DEBUG=true` in local development),
+Django settings fail to load before the token command can run.
 
 Send the token in the `Authorization: Token <service-token>` header over HTTPS.
 Store it in the companion application's deployment secrets. Tokens do not
