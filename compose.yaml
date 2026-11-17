@@ -38,4 +38,6 @@ services:
 
 volumes:
   postgres_data:
+    name: next-role_postgres_data
   media_data:
+    name: next-role_media_data

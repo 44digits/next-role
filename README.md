@@ -64,9 +64,11 @@ account in another terminal:
 docker compose exec web /opt/venv/bin/python manage.py createsuperuser
 ```
 
-PostgreSQL data and uploaded PDFs are stored in named Docker volumes. Back up
-both volumes; job records and uploaded documents are not disposable application
-cache.
+PostgreSQL data and uploaded PDFs are stored outside the containers in the
+`next-role_postgres_data` and `next-role_media_data` Docker volumes, respectively.
+They persist when containers stop or are recreated. Back up both volumes; job
+records and uploaded documents are not disposable application cache. Avoid
+`docker compose down --volumes` unless you intend to delete these volumes.
 
 ## Configuration
 
