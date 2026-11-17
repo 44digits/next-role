@@ -102,7 +102,7 @@ Every interaction belongs to exactly one job and may involve zero or one contact
 - Add and edit job postings manually. Defer automated job-site discovery.
 - Store PDFs on persistent local storage through a replaceable storage interface.
 - Track the current application stage and preserve stage-change history.
-- Provide a drag-and-drop kanban jobs board with the stages Job Found, Applied, Acknowledged, Recruiter Screen, Interview, Offer Extended, and Rejected. Moving a card changes its status and creates an audit-history entry.
+- Provide a drag-and-drop kanban jobs board with the stages Job Found, Applied, Acknowledged, Recruiter Screen, Interview, Offer Extended, and Rejected. Moving a card or changing status on the job detail page creates an audit-history entry.
 - Provide a detailed job view with company and position details, attached documents with PDF preview, associated contacts, and a chronological feed combining status changes and interactions.
 - Provide a confirmed delete action on the job detail page that removes the job and its related records and uploaded PDF files.
 - Do not store job location, description, or salary range; store job and company URLs as related links rather than columns on their parent records.

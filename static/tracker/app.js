@@ -59,10 +59,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!draggedCard || draggedCard.closest("[data-status-column]") === column) {
         return;
       }
-      const select = draggedCard.querySelector("[name=status]");
+      const statusInput = draggedCard.querySelector("[name=status]");
       const form = draggedCard.querySelector("[data-status-form]");
-      if (select && form) {
-        select.value = column.dataset.statusColumn;
+      if (statusInput && form) {
+        statusInput.value = column.dataset.statusColumn;
         form.requestSubmit();
       }
     });

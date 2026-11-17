@@ -131,8 +131,7 @@ button {
   font: inherit;
 }
 
-.button,
-.status-form button {
+.button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -229,17 +228,6 @@ button {
 .job-card p {
   margin-bottom: 0.45rem;
   font-size: 0.9rem;
-}
-
-.status-form {
-  display: flex;
-  gap: 0.4rem;
-  margin-top: 0.8rem;
-}
-
-.status-form .input {
-  min-width: 0;
-  padding: 0.35rem;
 }
 
 .content-grid {

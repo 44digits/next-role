@@ -53,7 +53,6 @@ def board(request):
         "tracker/board.html",
         {
             "columns": columns,
-            "status_choices": Job.Status.choices,
         },
     )
 

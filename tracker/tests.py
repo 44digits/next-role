@@ -151,6 +151,9 @@ class TrackerViewTests(TestCase):
         response = self.client.get(reverse("board"))
         self.assertContains(response, "Engineer")
         self.assertContains(response, "Job found")
+        self.assertContains(response, "data-status-form hidden")
+        self.assertNotContains(response, f'id="status-{self.job.pk}"')
+        self.assertNotContains(response, ">Update</button>")
         self.assertNotContains(response, "Overdue tasks")
         self.assertNotContains(response, "Schedule a follow-up task")
 

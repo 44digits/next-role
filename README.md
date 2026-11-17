@@ -5,8 +5,9 @@ application stages, related documents, and application/outreach reporting.
 
 ## Features
 
-- Drag-and-drop kanban board grouping jobs by their current stage, with an
-  auditable status history and a combined activity feed.
+- Drag-and-drop kanban board grouping jobs by their current stage; status can
+  also be changed from the job detail page. Status changes are audited in the
+  history and combined activity feed.
 - Job detail pages include a confirmed delete action that removes the job's
   history, interactions, links, documents, and uploaded PDF files.
 - Company records and links, jobs with posting and related links, and contacts
