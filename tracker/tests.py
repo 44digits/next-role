@@ -1,12 +1,14 @@
+import json
 import tempfile
 from datetime import timedelta
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+from rest_framework.authtoken.models import Token
 
 from .models import (
     Company,
@@ -576,6 +578,152 @@ class TrackerViewTests(TestCase):
         response = self.client.get(reverse("board"))
 
         self.assertRedirects(response, f"{reverse('login')}?next={reverse('board')}")
+
+
+class JobImportAPITests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="job-scraper")
+        permission = Permission.objects.get(
+            content_type__app_label="tracker",
+            codename="import_job_postings",
+        )
+        self.user.user_permissions.add(permission)
+        self.token = Token.objects.create(user=self.user)
+        self.url = reverse("job_import")
+
+    def payload(self, *, company_name="Acme", posting_url=None):
+        return {
+            "company": {
+                "name": company_name,
+                "links": [
+                    {"label": "Website", "url": "https://acme.example"},
+                ],
+            },
+            "job": {
+                "title": "Backend Engineer",
+                "links": [
+                    {
+                        "label": "Job posting",
+                        "url": posting_url or "https://careers.acme.example/jobs/123",
+                    },
+                ],
+                "notes": "",
+            },
+        }
+
+    def post_import(self, payload, *, token=None):
+        headers = {}
+        if token is not None:
+            headers["HTTP_AUTHORIZATION"] = f"Token {token.key}"
+        return self.client.post(
+            self.url,
+            data=json.dumps(payload),
+            content_type="application/json",
+            **headers,
+        )
+
+    def test_job_import_requires_token_authentication(self):
+        response = self.post_import(self.payload())
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_job_import_requires_import_permission(self):
+        user = User.objects.create_user(username="other-service")
+        token = Token.objects.create(user=user)
+
+        response = self.post_import(self.payload(), token=token)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_import_creates_company_job_link_and_found_status(self):
+        response = self.post_import(self.payload(), token=self.token)
+
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        job = Job.objects.get(pk=data["id"])
+        self.assertTrue(data["created"])
+        self.assertEqual(job.company.name, "Acme")
+        self.assertEqual(job.links.get().url, "https://careers.acme.example/jobs/123")
+        self.assertEqual(job.status, Job.Status.FOUND)
+        self.assertEqual(
+            job.status_history.get().to_status,
+            Job.Status.FOUND,
+        )
+        self.assertEqual(job.company.links.get().url, "https://acme.example")
+
+    def test_import_reuses_company_with_matching_name(self):
+        company = Company.objects.create(name="Acme")
+        CompanyLink.objects.create(
+            company=company,
+            label="Website",
+            url="https://acme.example",
+        )
+
+        response = self.post_import(self.payload(), token=self.token)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(Company.objects.filter(name="Acme").count(), 1)
+        self.assertEqual(Job.objects.get().company_id, company.pk)
+
+    def test_exact_posting_url_returns_existing_job_before_company_creation(self):
+        company = Company.objects.create(name="Existing Co.")
+        job = Job.objects.create(company=company, title="Existing role")
+        JobLink.objects.create(
+            job=job,
+            label="Job posting",
+            url="https://careers.acme.example/jobs/123",
+        )
+
+        response = self.post_import(
+            self.payload(company_name="Unrelated Co."),
+            token=self.token,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "id": job.pk,
+                "company": "Existing Co.",
+                "title": "Existing role",
+                "status": Job.Status.FOUND,
+                "created": False,
+            },
+        )
+        self.assertEqual(Company.objects.count(), 1)
+        self.assertEqual(Job.objects.count(), 1)
+
+    def test_different_posting_url_is_imported_without_fuzzy_matching(self):
+        company = Company.objects.create(name="Acme")
+        existing_job = Job.objects.create(
+            company=company,
+            title="Backend Engineer",
+        )
+        JobLink.objects.create(
+            job=existing_job,
+            label="Job posting",
+            url="https://careers.acme.example/jobs/old",
+        )
+
+        response = self.post_import(
+            self.payload(posting_url="https://careers.acme.example/jobs/new"),
+            token=self.token,
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(Job.objects.count(), 2)
+
+    def test_import_requires_exactly_one_job_posting_link(self):
+        payload = self.payload()
+        payload["job"]["links"] = [
+            {"label": "Careers", "url": "https://careers.acme.example"}
+        ]
+
+        response = self.post_import(payload, token=self.token)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Company.objects.count(), 0)
+        self.assertEqual(Job.objects.count(), 0)
 
 
 def _make_pdf(text):

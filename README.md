@@ -121,3 +121,48 @@ it must be associated with that job. Interactions do not track direction.
 Each contact's last-contacted date is maintained from its interaction history.
 Uploaded PDFs and extracted text are stored separately so a future object-storage
 backend can replace local files.
+
+## Job import API
+
+The authenticated `POST /api/v1/job-imports/` endpoint accepts JSON containing
+company details and links, plus a job title, notes, and links. Include exactly
+one job link labeled `Job posting`. The API creates new jobs in the Job found
+stage and creates the company if its exact name does not already exist. It
+compares the submitted posting URL exactly against existing job links: an exact
+match returns the existing job (`200`), and a different URL is imported as a new
+job (`201`), without fuzzy matching.
+
+Example request body:
+
+```json
+{
+  "company": {
+    "name": "Acme",
+    "links": [
+      { "label": "Website", "url": "https://acme.example" }
+    ]
+  },
+  "job": {
+    "title": "Backend Engineer",
+    "links": [
+      {
+        "label": "Job posting",
+        "url": "https://careers.acme.example/jobs/123"
+      }
+    ],
+    "notes": ""
+  }
+}
+```
+
+The endpoint uses Django REST Framework token authentication. Create an active,
+non-staff service user and grant it the `Can import job postings via the API`
+permission (for example, through Django admin). Generate its token with:
+
+```sh
+uv run python manage.py drf_create_token job-scraper
+```
+
+Send the token in the `Authorization: Token <service-token>` header over HTTPS.
+Store it in the companion application's deployment secrets. Tokens do not
+expire automatically; revoke or rotate them manually.
