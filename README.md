@@ -179,6 +179,10 @@ uv run python manage.py drf_create_token job-scraper
 Without `DJANGO_SECRET_KEY` (or `DJANGO_DEBUG=true` in local development),
 Django settings fail to load before the token command can run.
 
+Deleted jobs with a `Job posting` link leave a URL tombstone. The import API
+will not recreate a job for that exact URL. To allow a deliberate re-import,
+remove its entry from **Deleted job postings** in Django admin.
+
 Send the token in the `Authorization: Token <service-token>` header over HTTPS.
 Store it in the companion application's deployment secrets. Tokens do not
 expire automatically; revoke or rotate them manually.

@@ -14,6 +14,7 @@ from .models import (
     Company,
     CompanyLink,
     Contact,
+    DeletedJobPosting,
     Interaction,
     Job,
     JobContact,
@@ -179,6 +180,7 @@ class TrackerViewTests(TestCase):
             kind=Interaction.Kind.EMAIL,
         )
 
+        deleted_job_id = self.job.pk
         with tempfile.TemporaryDirectory() as media_root:
             with override_settings(MEDIA_ROOT=media_root):
                 upload = SimpleUploadedFile(
@@ -204,6 +206,12 @@ class TrackerViewTests(TestCase):
 
                 self.assertRedirects(response, reverse("board"))
                 self.assertFalse(Job.objects.filter(pk=self.job.pk).exists())
+                self.assertTrue(
+                    DeletedJobPosting.objects.filter(
+                        url="https://example.com/jobs/1",
+                        original_job_id=deleted_job_id,
+                    ).exists()
+                )
                 self.assertFalse(
                     JobStatusHistory.objects.filter(job_id=self.job.pk).exists()
                 )
@@ -692,6 +700,48 @@ class JobImportAPITests(TestCase):
         )
         self.assertEqual(Company.objects.count(), 1)
         self.assertEqual(Job.objects.count(), 1)
+
+    def test_deleted_posting_url_is_suppressed_on_reimport(self):
+        company = Company.objects.create(name="Acme")
+        job = Job.objects.create(company=company, title="Backend Engineer")
+        posting_url = "https://careers.acme.example/jobs/123"
+        JobLink.objects.create(job=job, label="Job posting", url=posting_url)
+        deleted_job_id = job.pk
+        self.client.force_login(self.user)
+
+        delete_response = self.client.post(reverse("job_delete", args=[job.pk]))
+        import_response = self.post_import(self.payload(), token=self.token)
+
+        self.assertEqual(delete_response.status_code, 302)
+        self.assertFalse(Job.objects.filter(pk=deleted_job_id).exists())
+        self.assertEqual(import_response.status_code, 200)
+        self.assertEqual(
+            import_response.json(),
+            {
+                "id": deleted_job_id,
+                "company": "Acme",
+                "title": "Backend Engineer",
+                "status": "deleted",
+                "created": False,
+            },
+        )
+        self.assertEqual(Job.objects.count(), 0)
+        self.assertEqual(Company.objects.count(), 1)
+
+    def test_bulk_job_delete_records_posting_url(self):
+        company = Company.objects.create(name="Acme")
+        job = Job.objects.create(company=company, title="Backend Engineer")
+        posting_url = "https://careers.acme.example/jobs/123"
+        JobLink.objects.create(job=job, label="Job posting", url=posting_url)
+
+        Job.objects.filter(pk=job.pk).delete()
+
+        self.assertTrue(
+            DeletedJobPosting.objects.filter(
+                url=posting_url,
+                original_job_id=job.pk,
+            ).exists()
+        )
 
     def test_different_posting_url_is_imported_without_fuzzy_matching(self):
         company = Company.objects.create(name="Acme")

@@ -175,6 +175,18 @@ class JobLink(models.Model):
         return f"{self.job}: {self.label}"
 
 
+class DeletedJobPosting(models.Model):
+    url = models.URLField(unique=True)
+    original_job_id = models.PositiveBigIntegerField()
+    deleted_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-deleted_at", "url"]
+
+    def __str__(self):
+        return self.url
+
+
 class Interaction(models.Model):
     class Kind(models.TextChoices):
         EMAIL = "email", "Email"
