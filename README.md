@@ -1,5 +1,12 @@
 # Next Role
 
+![Python 3.13+](https://img.shields.io/badge/Python-3.13%2B-3776AB?logo=python&logoColor=white)
+![Django 5.2.19](https://img.shields.io/badge/Django-5.2.19-092E20?logo=django&logoColor=white)
+![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
+![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![uv 0.13.8](https://img.shields.io/badge/uv-0.13.8-DE5FE9)
+![pdfplumber 0.11.10](https://img.shields.io/badge/pdfplumber-0.11.10-7A3E9D)
+
 A private, single-user job application tracker for opportunities, company contacts,
 application stages, related documents, and application/outreach reporting.
 
