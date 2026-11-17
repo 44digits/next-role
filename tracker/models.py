@@ -76,6 +76,9 @@ class Job(models.Model):
 
     class Meta:
         ordering = ["-updated_at", "company__name", "title"]
+        permissions = [
+            ("import_job_postings", "Can import job postings via the API"),
+        ]
 
     def __str__(self):
         return f"{self.title} at {self.company}"
