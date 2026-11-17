@@ -4,6 +4,7 @@ from .models import (
     Company,
     CompanyLink,
     Contact,
+    DeletedJobPosting,
     Interaction,
     Job,
     JobContact,
@@ -89,3 +90,13 @@ class JobDocumentAdmin(admin.ModelAdmin):
         "job__company__name",
         "extracted_text",
     ]
+
+
+@admin.register(DeletedJobPosting)
+class DeletedJobPostingAdmin(admin.ModelAdmin):
+    list_display = ["url", "original_job_id", "deleted_at"]
+    search_fields = ["url"]
+    readonly_fields = ["url", "original_job_id", "deleted_at"]
+
+    def has_add_permission(self, request):
+        return False

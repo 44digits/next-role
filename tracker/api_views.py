@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 
 from .api_permissions import CanImportJobPostings
 from .api_serializers import JobImportInputSerializer
-from .models import Company, CompanyLink, Job, JobLink
+from .models import Company, CompanyLink, DeletedJobPosting, Job, JobLink
 
 
 class JobImportAPIView(APIView):
@@ -35,6 +35,19 @@ class JobImportAPIView(APIView):
             if existing_job:
                 return Response(
                     self._job_response(existing_job, created=False),
+                    status=status.HTTP_200_OK,
+                )
+
+            deleted_posting = DeletedJobPosting.objects.filter(url=posting_url).first()
+            if deleted_posting:
+                return Response(
+                    {
+                        "id": deleted_posting.original_job_id,
+                        "company": company_data["name"],
+                        "title": job_data["title"],
+                        "status": "deleted",
+                        "created": False,
+                    },
                     status=status.HTTP_200_OK,
                 )
 
