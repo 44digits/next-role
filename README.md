@@ -75,11 +75,14 @@ account in another terminal:
 docker compose exec web /opt/venv/bin/python manage.py createsuperuser
 ```
 
-PostgreSQL data and uploaded PDFs are stored outside the containers in the
-`next-role_postgres_data` and `next-role_media_data` Docker volumes, respectively.
-They persist when containers stop or are recreated. Back up both volumes; job
-records and uploaded documents are not disposable application cache. Avoid
-`docker compose down --volumes` unless you intend to delete these volumes.
+PostgreSQL data and uploaded PDFs are stored in the project-local `data/postgres/`
+and `data/media/` directories, respectively. These bind mounts persist when
+containers stop or are recreated and are excluded from Git. Back up both
+directories; job records and uploaded documents are not disposable application
+cache. If you are switching from the previous named-volume setup, migrate the
+existing volumes into these directories before starting the updated Compose
+configuration; the data is not copied automatically. Keep the project directory
+on storage that persists across VM reboots.
 
 ## Configuration
 
