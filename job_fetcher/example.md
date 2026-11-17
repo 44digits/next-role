@@ -1,9 +1,9 @@
 # Example JSON-feed adapter
 
 This example shows a generic adapter for a site that exposes a documented JSON
-jobs feed. It is not registered in the fetcher by default, and it is not wired
-to a real job site. A real site may use different query parameters, response
-fields, or pagination and would need its own adapter.
+jobs feed. It is not a built-in adapter and is not wired to a real job site. A
+real site may use different query parameters, response fields, or pagination
+and would need its own adapter.
 
 The adapter passes `search_inputs` as query parameters and sends the previous
 page's cursor as a `cursor` query parameter. It expects the feed to return a
@@ -113,11 +113,18 @@ def register(registry: AdapterRegistry) -> None:
 The adapter translates request and parsing failures into `SiteScrapeError`, so
 the runner can log the site failure and continue to other sites.
 
+## Automatic discovery
+
+The CLI automatically discovers adapter modules in the top-level
+`job_fetcher/adapters/` directory. Save the example there as
+`adapters/json_feed.py`; no edits to `cli.py` are needed. On startup, the CLI
+imports each `.py` file whose name does not start with `_` and calls its
+`register(registry)` function. The directory is Git-ignored, so the module must
+be present in your local working tree and Docker build context.
+
 ## Example configuration
 
-The fetcher loads Python modules in `adapters/` and invokes each module's
-`register` function. The `adapter` value must match the name passed to
-`registry.register`:
+The `adapter` value must match the name passed to `registry.register`:
 
 ```json
 {
