@@ -13,7 +13,6 @@ erDiagram
     COMPANY {
         int id PK
         string name
-        string website
         text description
     }
 
@@ -28,12 +27,9 @@ erDiagram
         int id PK
         int company_id FK
         string title
-        string posting_url
-        string status
-        date found_on
-        date applied_on
-        string location
-        string salary_range
+        string location "optional"
+        string salary_range "optional"
+        text notes
     }
 
     JOB_LINK {
@@ -71,10 +67,9 @@ erDiagram
 
     INTERACTION {
         int id PK
-        int contact_id FK
-        int job_id FK "nullable"
+        int job_id FK
+        int contact_id FK "nullable"
         string kind
-        string direction
         datetime occurred_at
         text notes
     }
@@ -91,17 +86,17 @@ erDiagram
 
     COMPANY ||--o{ JOB : has
     COMPANY ||--o{ CONTACT : has
-    COMPANY ||--o{ COMPANY_LINK : has
-    JOB ||--o{ JOB_LINK : has
+    COMPANY ||--|{ COMPANY_LINK : has
+    JOB ||--|{ JOB_LINK : has
     JOB ||--o{ JOB_CONTACT : associates
     CONTACT ||--o{ JOB_CONTACT : associates
-    JOB ||--o{ JOB_STATUS_HISTORY : records
-    CONTACT ||--o{ INTERACTION : has
-    JOB o|--o{ INTERACTION : optionally_relates_to
+    JOB ||--|{ JOB_STATUS_HISTORY : records
+    CONTACT o|--o{ INTERACTION : has
+    JOB ||--o{ INTERACTION : records
     JOB ||--o{ JOB_DOCUMENT : has
 ```
 
-Each interaction belongs to one contact and may relate to one job. A job/contact association is unique per pair, and both records must belong to the same company. `CONTACT.last_contacted_at` is maintained from interaction history; document file bytes live in configured storage while metadata and extracted text live in the database.
+Every interaction belongs to exactly one job and may involve zero or one contact. Jobs may initially have no interactions, but each logged interaction must have a job. Each company and each job must have one or more links, stored in the separate link tables. A job/contact association is unique per pair, and both records must belong to the same company. Job status and status-change times are stored in `JOB_STATUS_HISTORY`; there are no separate status, found-date, or applied-date fields on `JOB`. `CONTACT.last_contacted_at` is maintained from interaction history; document file bytes live in configured storage while metadata and extracted text live in the database.
 
 ## Scope decisions
 
@@ -111,14 +106,16 @@ Each interaction belongs to one contact and may relate to one job. A job/contact
 - Track the current application stage and preserve stage-change history.
 - Provide a drag-and-drop kanban jobs board with the stages Job Found, Applied, Acknowledged, Recruiter Screen, Interview, Offer Extended, and Rejected. Moving a card changes its status and creates an audit-history entry.
 - Provide a detailed job view with company and position details, salary range, work location, attached documents with PDF preview, associated contacts, and a chronological feed combining status changes and interactions.
+- Keep salary range and location optional; store job and company URLs as related links rather than columns on their parent records.
 - Model companies, jobs, contacts, and interactions so each job can have zero or more contacts; allow contacts to be associated with multiple jobs at the same company.
 - Support job/application documents such as resumes and submitted application files.
 - Report application counts grouped by current status for applications applied within a selected date range.
 - Provide a filterable contact directory by company, last-contact date, and role/title. Automatically maintain each contact's last-contacted date when an interaction is recorded.
 - Highlight contacts not contacted in more than 30, 60, and 180 days; include contacts never contacted.
-- Provide a global quick-interaction action on every page for logging email, LinkedIn message, phone call, interview, or other activity. Selecting a contact filters the optional related-job choices to jobs linked to that contact.
+- Provide a global quick-interaction action on every page for logging email, LinkedIn message, phone call, acknowledgement, interview, or other activity. Selecting a contact filters available jobs to jobs linked to that contact.
+- Require each interaction to refer to one job, allow its contact to be empty, and do not track interaction direction. Include acknowledgement as an interaction kind.
 - Accept multiple PDF documents per job, including job descriptions, resumes, and cover letters. Extract text during upload for keyword search across documents.
-- Provide analytics for application funnel conversion (Applied to Acknowledged to Recruiter Screen to Interview to Offer Extended), weekly outbound interactions by type, and stale contacts.
+- Provide analytics for application funnel conversion (Applied to Acknowledged to Recruiter Screen to Interview to Offer Extended), weekly interactions by type, and stale contacts.
 
 ## Todos
 
@@ -134,8 +131,8 @@ Each interaction belongs to one contact and may relate to one job. A job/contact
 
 - Keep application configuration externalized for future cloud deployment; do not bind the design to a particular cloud provider.
 - Use a controlled, code-defined stage vocabulary of Job Found, Applied, Acknowledged, Recruiter Screen, Interview, Offer Extended, and Rejected; preserve historical transitions rather than only overwriting the current stage. User-defined stages are outside the first-release scope.
-- Store interaction date, type (email, LinkedIn message, phone, interview, or other), notes, contact, and optional related job. The selected job must be associated with the selected contact.
-- Base the application report's date filter on the applied date and group by each application's current status at report time.
+- Store interaction date, type (email, LinkedIn message, phone, acknowledgement, interview, or other), notes, required job, and optional contact. If a contact is selected, it must belong to the job's company and be associated with that job.
+- Base the application report's date filter on the first status-history entry for Applied and group by each job's latest status-history entry.
 - Calculate contact last-contacted dates from interaction records and keep the displayed/stored value synchronized when interactions are created, updated, or removed. Use calendar-day thresholds of 30, 60, and 180 days, and include contacts with no interaction history.
 - Store document metadata and extracted text in the relational database and file bytes in the configured storage backend. Extract searchable text from PDFs with pdfplumber; retain the uploaded PDF as the source of truth.
-- Define funnel stages consistently and make the conversion denominator explicit; report weekly outbound interaction counts grouped by interaction type.
+- Define funnel stages consistently and make the conversion denominator explicit; report all weekly interaction counts grouped by type.

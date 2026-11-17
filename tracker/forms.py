@@ -1,4 +1,5 @@
 from django import forms
+from django.db import transaction
 
 from .models import (
     Company,
@@ -25,10 +26,36 @@ class StyledModelForm(forms.ModelForm):
 
 
 class CompanyForm(StyledModelForm):
+    company_url = forms.URLField(label="Company URL")
+
     class Meta:
         model = Company
-        fields = ["name", "website", "description"]
+        fields = ["name", "description"]
         widgets = {"description": forms.Textarea(attrs={"rows": 4})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk and not self.is_bound:
+            link = self.instance.links.filter(label="Website").first()
+            link = link or self.instance.links.first()
+            if link:
+                self.initial["company_url"] = link.url
+
+    def save(self, commit=True):
+        company = super().save(commit=commit)
+        if commit:
+            with transaction.atomic():
+                link = company.links.filter(label="Website").first()
+                if link:
+                    link.url = self.cleaned_data["company_url"]
+                    link.save(update_fields=["url"])
+                else:
+                    CompanyLink.objects.create(
+                        company=company,
+                        label="Website",
+                        url=self.cleaned_data["company_url"],
+                    )
+        return company
 
 
 class CompanyLinkForm(StyledModelForm):
@@ -74,6 +101,8 @@ class ContactFilterForm(forms.Form):
 
 
 class JobForm(StyledModelForm):
+    posting_url = forms.URLField(label="Job posting URL")
+    status = forms.ChoiceField(choices=Job.Status.choices)
     contacts = forms.ModelMultipleChoiceField(
         queryset=Contact.objects.none(),
         required=False,
@@ -85,21 +114,15 @@ class JobForm(StyledModelForm):
         fields = [
             "company",
             "title",
-            "posting_url",
             "location",
             "salary_range",
             "description",
             "notes",
-            "status",
-            "found_on",
-            "applied_on",
             "contacts",
         ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 5}),
             "notes": forms.Textarea(attrs={"rows": 4}),
-            "found_on": forms.DateInput(attrs={"type": "date"}),
-            "applied_on": forms.DateInput(attrs={"type": "date"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -111,6 +134,32 @@ class JobForm(StyledModelForm):
             )
         if self.instance.pk:
             self.fields["contacts"].initial = self.instance.contacts.all()
+            self.initial["status"] = self.instance.status
+            link = self.instance.links.filter(label="Job posting").first()
+            link = link or self.instance.links.first()
+            if link:
+                self.initial["posting_url"] = link.url
+        else:
+            self.initial.setdefault("status", Job.Status.FOUND)
+
+    def save(self, commit=True):
+        job = super().save(commit=commit)
+        if not commit:
+            return job
+        with transaction.atomic():
+            if self.cleaned_data["status"] != job.status:
+                job.record_status(self.cleaned_data["status"])
+            link = job.links.filter(label="Job posting").first()
+            if link:
+                link.url = self.cleaned_data["posting_url"]
+                link.save(update_fields=["url"])
+            else:
+                JobLink.objects.create(
+                    job=job,
+                    label="Job posting",
+                    url=self.cleaned_data["posting_url"],
+                )
+        return job
 
     def clean_contacts(self):
         contacts = self.cleaned_data["contacts"]
@@ -129,7 +178,7 @@ class JobLinkForm(StyledModelForm):
 
 
 class InteractionForm(StyledModelForm):
-    contact = forms.ModelChoiceField(queryset=Contact.objects.none())
+    contact = forms.ModelChoiceField(queryset=Contact.objects.none(), required=False)
     occurred_at = forms.DateTimeField(
         input_formats=["%Y-%m-%dT%H:%M"],
         widget=forms.DateTimeInput(
@@ -139,7 +188,7 @@ class InteractionForm(StyledModelForm):
 
     class Meta:
         model = Interaction
-        fields = ["contact", "job", "kind", "direction", "occurred_at", "notes"]
+        fields = ["contact", "job", "kind", "occurred_at", "notes"]
         widgets = {"notes": forms.Textarea(attrs={"rows": 4})}
 
     def __init__(self, *args, **kwargs):
@@ -151,9 +200,8 @@ class InteractionForm(StyledModelForm):
         self.fields["job"].queryset = (
             Job.objects.filter(contacts__pk=contact_id).distinct()
             if contact_id
-            else Job.objects.none()
+            else Job.objects.all()
         )
-        self.fields["job"].required = False
 
     def clean(self):
         cleaned_data = super().clean()

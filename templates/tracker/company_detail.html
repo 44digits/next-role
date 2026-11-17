@@ -6,7 +6,6 @@
     <div>
       <p class="eyebrow">Company</p>
       <h1>{{ company.name }}</h1>
-      {% if company.website %}<p><a href="{{ company.website }}" target="_blank" rel="noopener noreferrer">{{ company.website }}</a></p>{% endif %}
       {% if company.description %}<p>{{ company.description|linebreaksbr }}</p>{% endif %}
     </div>
     <a class="button" href="{% url 'company_update' company.pk %}">Edit company</a>

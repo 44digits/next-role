@@ -14,7 +14,7 @@
       <a class="button" href="{% url 'reports' %}">Clear</a>
     </form>
     {{ form.non_field_errors }}
-    <p class="muted">Application counts use applied date and current status. Funnel uses applications applied in this date range and counts each job at its furthest reached stage.</p>
+    <p class="muted">Application counts use the date an application entered the Applied status and each job's latest status history entry. Funnel counts each job at its furthest reached stage.</p>
     <div class="metric-row">
       <div class="metric"><span>Total applications</span><strong>{{ total_applications }}</strong></div>
       {% for item in status_counts %}
@@ -35,11 +35,11 @@
     </div>
   </section>
   <section class="panel">
-    <h2>Weekly outbound interactions</h2>
-    <p class="muted">Outbound interactions in the selected date range, grouped by week and type.</p>
-    {% if weekly_outreach %}
+    <h2>Weekly interactions</h2>
+    <p class="muted">Interactions in the selected date range, grouped by week and type.</p>
+    {% if weekly_interactions %}
       <div class="outreach-chart">
-        {% for week in weekly_outreach %}
+        {% for week in weekly_interactions %}
           <div class="outreach-row">
             <time>{{ week.week|date:"Y-m-d" }}</time>
             <div class="stacked-bar" aria-label="{{ week.total }} interactions">
@@ -56,7 +56,7 @@
           </div>
         {% endfor %}
       </div>
-    {% else %}<p class="empty">No outbound interactions in this date range.</p>{% endif %}
+    {% else %}<p class="empty">No interactions in this date range.</p>{% endif %}
   </section>
   <section class="panel">
     <h2>Stale contacts</h2>

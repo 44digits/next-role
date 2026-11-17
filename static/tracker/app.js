@@ -23,7 +23,8 @@ document.addEventListener("DOMContentLoaded", () => {
     for (const option of jobSelect.options) {
       if (!option.value) continue;
       const contactIds = (option.dataset.contactIds || "").split(",");
-      option.hidden = !contactIds.includes(contactSelect.value);
+      option.hidden =
+        Boolean(contactSelect.value) && !contactIds.includes(contactSelect.value);
       if (option.hidden && option.selected) jobSelect.value = "";
     }
   };

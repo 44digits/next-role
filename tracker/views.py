@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Q
+from django.db.models import Count, OuterRef, Q, Subquery
 from django.db.models.functions import TruncWeek
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -37,7 +37,9 @@ from .models import (
 
 @login_required
 def board(request):
-    jobs = Job.objects.select_related("company").prefetch_related("contacts")
+    jobs = Job.objects.select_related("company").prefetch_related(
+        "contacts", "status_history"
+    )
     jobs_by_status = {status: [] for status, _ in Job.Status.choices}
     for job in jobs:
         jobs_by_status[job.status].append(job)
@@ -98,6 +100,10 @@ def job_detail(request, pk):
         {
             "job": job,
             "activity": activity,
+            "posting_link": next(
+                (link for link in job.links.all() if link.label == "Job posting"),
+                None,
+            ),
         },
     )
 
@@ -126,15 +132,17 @@ def job_change_status(request, pk):
     if status not in Job.Status.values:
         messages.error(request, "Choose a valid job status.")
     else:
-        job.status = status
-        job.save(update_fields=["status", "updated_at"])
+        job.record_status(status)
         messages.success(request, "Job status updated.")
     return _safe_redirect(request, request.POST.get("next"), "board")
 
 
 @login_required
 def company_list(request):
-    companies = Company.objects.annotate(job_count=Count("jobs")).order_by("name")
+    companies = Company.objects.annotate(
+        job_count=Count("jobs", distinct=True),
+        link_count=Count("links", distinct=True),
+    ).order_by("name")
     return render(request, "tracker/company_list.html", {"companies": companies})
 
 
@@ -195,7 +203,11 @@ def company_link_create(request, pk):
 @require_POST
 def company_link_delete(request, pk, link_pk):
     company = get_object_or_404(Company, pk=pk)
-    get_object_or_404(CompanyLink, pk=link_pk, company=company).delete()
+    link = get_object_or_404(CompanyLink, pk=link_pk, company=company)
+    if company.links.count() == 1:
+        messages.error(request, "A company must have at least one link.")
+        return redirect("company_detail", pk=company.pk)
+    link.delete()
     messages.success(request, "Company link removed.")
     return redirect("company_detail", pk=company.pk)
 
@@ -331,7 +343,11 @@ def job_link_create(request, pk):
 @require_POST
 def job_link_delete(request, pk, link_pk):
     job = get_object_or_404(Job, pk=pk)
-    get_object_or_404(JobLink, pk=link_pk, job=job).delete()
+    link = get_object_or_404(JobLink, pk=link_pk, job=job)
+    if job.links.count() == 1:
+        messages.error(request, "A job must have at least one link.")
+        return redirect("job_detail", pk=job.pk)
+    link.delete()
     messages.success(request, "Job link removed.")
     return redirect("job_detail", pk=job.pk)
 
@@ -431,25 +447,34 @@ def _safe_redirect(request, destination, fallback):
 @login_required
 def reports(request):
     form = ApplicationReportForm(request.GET)
-    applied_jobs = Job.objects.filter(applied_on__isnull=False)
-    interactions = Interaction.objects.filter(direction=Interaction.Direction.OUTBOUND)
+    latest_status = JobStatusHistory.objects.filter(job_id=OuterRef("pk")).order_by(
+        "-changed_at", "-pk"
+    )
+    first_applied = JobStatusHistory.objects.filter(
+        job_id=OuterRef("pk"), to_status=Job.Status.APPLIED
+    ).order_by("changed_at", "pk")
+    applied_jobs = Job.objects.annotate(
+        current_status=Subquery(latest_status.values("to_status")[:1]),
+        applied_at=Subquery(first_applied.values("changed_at")[:1]),
+    ).filter(applied_at__isnull=False)
+    interactions = Interaction.objects.all()
     if form.is_valid():
         start_date = form.cleaned_data.get("start_date")
         end_date = form.cleaned_data.get("end_date")
         if start_date:
-            applied_jobs = applied_jobs.filter(applied_on__gte=start_date)
+            applied_jobs = applied_jobs.filter(applied_at__date__gte=start_date)
             interactions = interactions.filter(occurred_at__date__gte=start_date)
         if end_date:
-            applied_jobs = applied_jobs.filter(applied_on__lte=end_date)
+            applied_jobs = applied_jobs.filter(applied_at__date__lte=end_date)
             interactions = interactions.filter(occurred_at__date__lte=end_date)
     else:
         applied_jobs = applied_jobs.none()
         interactions = interactions.none()
 
     status_totals = dict(
-        applied_jobs.values("status")
+        applied_jobs.values("current_status")
         .annotate(total=Count("pk"))
-        .values_list("status", "total")
+        .values_list("current_status", "total")
     )
     status_counts = [
         {"label": label, "count": status_totals.get(status, 0)}
@@ -462,7 +487,7 @@ def reports(request):
         .annotate(total=Count("pk"))
         .order_by("week", "kind")
     )
-    weekly_outreach = _weekly_outreach(weekly_rows)
+    weekly_interactions = _weekly_interactions(weekly_rows)
 
     contacts = Contact.objects.select_related("company")
     stale_buckets = []
@@ -486,7 +511,7 @@ def reports(request):
             "status_counts": status_counts,
             "total_applications": sum(item["count"] for item in status_counts),
             "funnel": funnel,
-            "weekly_outreach": weekly_outreach,
+            "weekly_interactions": weekly_interactions,
             "stale_buckets": stale_buckets,
         },
     )
@@ -559,20 +584,14 @@ def _application_funnel(applied_jobs):
 
 
 def _jobs_reaching_statuses(job_ids, statuses):
-    reached_ids = set(
+    return set(
         JobStatusHistory.objects.filter(
             job_id__in=job_ids, to_status__in=statuses
         ).values_list("job_id", flat=True)
     )
-    reached_ids.update(
-        Job.objects.filter(pk__in=job_ids, status__in=statuses).values_list(
-            "pk", flat=True
-        )
-    )
-    return reached_ids
 
 
-def _weekly_outreach(rows):
+def _weekly_interactions(rows):
     kinds = list(Interaction.Kind.choices)
     weeks = {}
     for row in rows:

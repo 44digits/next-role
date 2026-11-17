@@ -10,11 +10,14 @@ from django.utils import timezone
 
 from .models import (
     Company,
+    CompanyLink,
     Contact,
     Interaction,
     Job,
     JobContact,
     JobDocument,
+    JobLink,
+    JobStatusHistory,
 )
 
 
@@ -24,7 +27,6 @@ class JobStatusHistoryTests(TestCase):
         self.job = Job.objects.create(
             company=self.company,
             title="Engineer",
-            posting_url="https://example.com/jobs/1",
         )
 
     def test_status_list_has_acknowledged_recruiter_screen_and_one_interview(self):
@@ -42,15 +44,10 @@ class JobStatusHistoryTests(TestCase):
         )
 
     def test_initial_status_and_each_change_are_recorded(self):
-        self.job.status = Job.Status.APPLIED
-        self.job.save(update_fields=["status"])
-        self.assertEqual(self.job.applied_on, timezone.localdate())
-        self.job.status = Job.Status.ACKNOWLEDGED
-        self.job.save(update_fields=["status"])
-        self.job.status = Job.Status.RECRUITER_SCREEN
-        self.job.save(update_fields=["status"])
-        self.job.status = Job.Status.INTERVIEW
-        self.job.save(update_fields=["status"])
+        self.job.record_status(Job.Status.APPLIED)
+        self.job.record_status(Job.Status.ACKNOWLEDGED)
+        self.job.record_status(Job.Status.RECRUITER_SCREEN)
+        self.job.record_status(Job.Status.INTERVIEW)
 
         history = list(self.job.status_history.order_by("pk"))
         self.assertEqual(
@@ -64,22 +61,20 @@ class JobStatusHistoryTests(TestCase):
             ],
         )
 
-    def test_status_change_is_not_logged_when_status_is_not_saved(self):
-        self.job.status = Job.Status.DENIED
+    def test_saving_other_job_fields_does_not_change_status_history(self):
+        self.job.title = "Updated engineer"
         self.job.save(update_fields=["title"])
-
         self.assertEqual(self.job.status_history.count(), 1)
         self.assertEqual(Job.objects.get(pk=self.job.pk).status, Job.Status.FOUND)
 
-    def test_creating_applied_job_sets_applied_date(self):
+    def test_creating_job_records_initial_found_status(self):
         job = Job.objects.create(
             company=self.company,
             title="Another engineer",
-            posting_url="https://example.com/jobs/2",
-            status=Job.Status.APPLIED,
         )
 
-        self.assertEqual(job.applied_on, timezone.localdate())
+        self.assertEqual(job.status, Job.Status.FOUND)
+        self.assertEqual(job.status_history.count(), 1)
 
     def test_job_contact_must_belong_to_same_company(self):
         other_company = Company.objects.create(name="Other Inc.")
@@ -99,11 +94,13 @@ class JobStatusHistoryTests(TestCase):
         )
         earlier = Interaction.objects.create(
             contact=contact,
+            job=self.job,
             kind=Interaction.Kind.EMAIL,
             occurred_at=timezone.now() - timedelta(days=4),
         )
         later = Interaction.objects.create(
             contact=contact,
+            job=self.job,
             kind=Interaction.Kind.LINKEDIN,
             occurred_at=timezone.now() - timedelta(days=1),
         )
@@ -126,9 +123,29 @@ class TrackerViewTests(TestCase):
         self.job = Job.objects.create(
             company=self.company,
             title="Engineer",
-            posting_url="https://example.com/jobs/1",
+        )
+        JobLink.objects.create(
+            job=self.job,
+            label="Job posting",
+            url="https://example.com/jobs/1",
         )
         self.client.force_login(self.user)
+
+    def create_job(self, title, url):
+        job = Job.objects.create(company=self.company, title=title)
+        JobLink.objects.create(job=job, label="Job posting", url=url)
+        return job
+
+    def create_applied_job(self, title, url, applied_at=None, final_status=None):
+        job = self.create_job(title, url)
+        job.record_status(Job.Status.APPLIED)
+        if applied_at:
+            JobStatusHistory.objects.filter(
+                job=job, to_status=Job.Status.APPLIED
+            ).update(changed_at=applied_at)
+        if final_status:
+            job.record_status(final_status)
+        return job
 
     def test_board_groups_jobs_and_status_change_adds_history(self):
         response = self.client.get(reverse("board"))
@@ -158,7 +175,6 @@ class TrackerViewTests(TestCase):
                 "title": "Product engineer",
                 "posting_url": "https://example.com/jobs/product-engineer",
                 "status": Job.Status.FOUND,
-                "found_on": timezone.localdate().isoformat(),
                 "contacts": [contact.pk],
             },
         )
@@ -166,17 +182,55 @@ class TrackerViewTests(TestCase):
         created_job = Job.objects.get(title="Product engineer")
         self.assertRedirects(response, reverse("job_detail", args=[created_job.pk]))
         self.assertQuerySetEqual(created_job.contacts.all(), [contact])
+        self.assertTrue(
+            created_job.links.filter(
+                label="Job posting",
+                url="https://example.com/jobs/product-engineer",
+            ).exists()
+        )
+
+    def test_company_form_creates_required_company_link(self):
+        response = self.client.post(
+            reverse("company_create"),
+            {
+                "name": "New Company",
+                "company_url": "https://example.com/company",
+                "description": "",
+            },
+        )
+
+        company = Company.objects.get(name="New Company")
+        self.assertRedirects(response, reverse("company_detail", args=[company.pk]))
+        self.assertEqual(company.links.count(), 1)
+        self.assertEqual(company.links.get().url, "https://example.com/company")
+
+    def test_company_must_retain_at_least_one_link(self):
+        link = CompanyLink.objects.create(
+            company=self.company,
+            label="Website",
+            url="https://example.com/company",
+        )
+
+        response = self.client.post(
+            reverse("company_link_delete", args=[self.company.pk, link.pk])
+        )
+
+        self.assertRedirects(
+            response, reverse("company_detail", args=[self.company.pk])
+        )
+        self.assertTrue(CompanyLink.objects.filter(pk=link.pk).exists())
 
     def test_contact_interaction_form_records_history(self):
         contact = Contact.objects.create(
             company=self.company, first_name="Casey", last_name="Recruiter"
         )
+        JobContact.objects.create(job=self.job, contact=contact)
 
         response = self.client.post(
             reverse("interaction_create", args=[contact.pk]),
             {
+                "job": self.job.pk,
                 "kind": Interaction.Kind.EMAIL,
-                "direction": Interaction.Direction.OUTBOUND,
                 "occurred_at": timezone.localtime().strftime("%Y-%m-%dT%H:%M"),
                 "notes": "Sent a follow-up email.",
             },
@@ -203,7 +257,6 @@ class TrackerViewTests(TestCase):
                 "contact": contact.pk,
                 "job": self.job.pk,
                 "kind": Interaction.Kind.EMAIL,
-                "direction": Interaction.Direction.OUTBOUND,
                 "occurred_at": timezone.localtime().strftime("%Y-%m-%dT%H:%M"),
                 "notes": "Follow-up sent.",
             },
@@ -212,6 +265,23 @@ class TrackerViewTests(TestCase):
         self.assertRedirects(response, reverse("board"))
         interaction = Interaction.objects.get()
         self.assertEqual(interaction.contact, contact)
+        self.assertEqual(interaction.job, self.job)
+
+    def test_interaction_can_be_logged_without_a_contact(self):
+        response = self.client.post(
+            reverse("quick_interaction"),
+            {
+                "contact": "",
+                "job": self.job.pk,
+                "kind": Interaction.Kind.ACKNOWLEDGEMENT,
+                "occurred_at": timezone.localtime().strftime("%Y-%m-%dT%H:%M"),
+                "notes": "Application receipt acknowledged.",
+            },
+        )
+
+        self.assertRedirects(response, reverse("board"))
+        interaction = Interaction.objects.get()
+        self.assertIsNone(interaction.contact)
         self.assertEqual(interaction.job, self.job)
 
     def test_contact_directory_filters_by_role_and_inactivity(self):
@@ -233,13 +303,17 @@ class TrackerViewTests(TestCase):
             last_name="Role",
             title="Engineer",
         )
+        JobContact.objects.create(job=self.job, contact=stale)
+        JobContact.objects.create(job=self.job, contact=recent)
         Interaction.objects.create(
             contact=stale,
+            job=self.job,
             kind=Interaction.Kind.EMAIL,
             occurred_at=timezone.now() - timedelta(days=45),
         )
         Interaction.objects.create(
             contact=recent,
+            job=self.job,
             kind=Interaction.Kind.EMAIL,
             occurred_at=timezone.now() - timedelta(days=5),
         )
@@ -251,13 +325,7 @@ class TrackerViewTests(TestCase):
         self.assertEqual(list(response.context["contacts"]), [stale])
 
     def test_invalid_report_range_does_not_show_unfiltered_totals(self):
-        Job.objects.create(
-            company=self.company,
-            title="Applied job",
-            posting_url="https://example.com/jobs/2",
-            status=Job.Status.APPLIED,
-            applied_on=timezone.localdate(),
-        )
+        self.create_applied_job("Applied job", "https://example.com/jobs/2")
 
         response = self.client.get(
             reverse("reports"),
@@ -269,19 +337,15 @@ class TrackerViewTests(TestCase):
 
     def test_reports_filter_by_applied_date_and_find_stale_contacts(self):
         today = timezone.localdate()
-        Job.objects.create(
-            company=self.company,
-            title="Included",
-            posting_url="https://example.com/jobs/2",
-            status=Job.Status.DENIED,
-            applied_on=today,
+        self.create_applied_job(
+            "Included",
+            "https://example.com/jobs/2",
+            final_status=Job.Status.DENIED,
         )
-        Job.objects.create(
-            company=self.company,
-            title="Outside range",
-            posting_url="https://example.com/jobs/3",
-            status=Job.Status.APPLIED,
-            applied_on=today - timedelta(days=100),
+        self.create_applied_job(
+            "Outside range",
+            "https://example.com/jobs/3",
+            applied_at=timezone.now() - timedelta(days=100),
         )
         stale = Contact.objects.create(
             company=self.company, first_name="Stale", last_name="Contact"
@@ -295,11 +359,13 @@ class TrackerViewTests(TestCase):
 
         Interaction.objects.create(
             contact=stale,
+            job=self.job,
             kind=Interaction.Kind.EMAIL,
             occurred_at=timezone.now() - timedelta(days=200),
         )
         Interaction.objects.create(
             contact=recent,
+            job=self.job,
             kind=Interaction.Kind.PHONE,
             occurred_at=timezone.now() - timedelta(days=10),
         )
@@ -325,43 +391,20 @@ class TrackerViewTests(TestCase):
         }
         self.assertEqual(stale_ids, {stale.pk, never.pk})
 
-    def test_reports_calculate_funnel_and_weekly_outreach(self):
+    def test_reports_calculate_funnel_and_weekly_interactions(self):
         today = timezone.localdate()
-        applied = Job.objects.create(
-            company=self.company,
-            title="Applied",
-            posting_url="https://example.com/jobs/applied",
-            status=Job.Status.APPLIED,
-            applied_on=today,
+        applied = self.create_applied_job("Applied", "https://example.com/jobs/applied")
+        interviewed = self.create_applied_job(
+            "Interviewed", "https://example.com/jobs/interviewed"
         )
-        interviewed = Job.objects.create(
-            company=self.company,
-            title="Interviewed",
-            posting_url="https://example.com/jobs/interviewed",
-            status=Job.Status.APPLIED,
-            applied_on=today,
-        )
-        interviewed.status = Job.Status.ACKNOWLEDGED
-        interviewed.save(update_fields=["status"])
-        interviewed.status = Job.Status.RECRUITER_SCREEN
-        interviewed.save(update_fields=["status"])
-        interviewed.status = Job.Status.INTERVIEW
-        interviewed.save(update_fields=["status"])
-        offered = Job.objects.create(
-            company=self.company,
-            title="Offer",
-            posting_url="https://example.com/jobs/offer",
-            status=Job.Status.APPLIED,
-            applied_on=today,
-        )
-        offered.status = Job.Status.ACKNOWLEDGED
-        offered.save(update_fields=["status"])
-        offered.status = Job.Status.RECRUITER_SCREEN
-        offered.save(update_fields=["status"])
-        offered.status = Job.Status.INTERVIEW
-        offered.save(update_fields=["status"])
-        offered.status = Job.Status.OFFER
-        offered.save(update_fields=["status"])
+        interviewed.record_status(Job.Status.ACKNOWLEDGED)
+        interviewed.record_status(Job.Status.RECRUITER_SCREEN)
+        interviewed.record_status(Job.Status.INTERVIEW)
+        offered = self.create_applied_job("Offer", "https://example.com/jobs/offer")
+        offered.record_status(Job.Status.ACKNOWLEDGED)
+        offered.record_status(Job.Status.RECRUITER_SCREEN)
+        offered.record_status(Job.Status.INTERVIEW)
+        offered.record_status(Job.Status.OFFER)
         contact = Contact.objects.create(
             company=self.company, first_name="Jordan", last_name="Recruiter"
         )
@@ -370,19 +413,16 @@ class TrackerViewTests(TestCase):
             contact=contact,
             job=applied,
             kind=Interaction.Kind.EMAIL,
-            direction=Interaction.Direction.OUTBOUND,
         )
         Interaction.objects.create(
             contact=contact,
             job=applied,
             kind=Interaction.Kind.PHONE,
-            direction=Interaction.Direction.OUTBOUND,
         )
         Interaction.objects.create(
             contact=contact,
             job=applied,
             kind=Interaction.Kind.EMAIL,
-            direction=Interaction.Direction.INBOUND,
         )
 
         response = self.client.get(
@@ -397,8 +437,8 @@ class TrackerViewTests(TestCase):
             [(item["count"], item["percent"]) for item in response.context["funnel"]],
             [(3, 100), (2, 67), (2, 100), (2, 100), (1, 50)],
         )
-        self.assertEqual(len(response.context["weekly_outreach"]), 1)
-        self.assertEqual(response.context["weekly_outreach"][0]["total"], 2)
+        self.assertEqual(len(response.context["weekly_interactions"]), 1)
+        self.assertEqual(response.context["weekly_interactions"][0]["total"], 3)
 
     def test_document_upload_and_download(self):
         with tempfile.TemporaryDirectory() as media_root:

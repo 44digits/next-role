@@ -8,7 +8,6 @@ from django.utils import timezone
 
 class Company(models.Model):
     name = models.CharField(max_length=200, unique=True)
-    website = models.URLField(blank=True)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -68,16 +67,10 @@ class Job(models.Model):
 
     company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="jobs")
     title = models.CharField(max_length=200)
-    posting_url = models.URLField()
     location = models.CharField(max_length=200, blank=True)
     salary_range = models.CharField(max_length=120, blank=True)
     description = models.TextField(blank=True)
     notes = models.TextField(blank=True)
-    status = models.CharField(
-        max_length=32, choices=Status.choices, default=Status.FOUND
-    )
-    found_on = models.DateField(default=timezone.localdate)
-    applied_on = models.DateField(null=True, blank=True)
     contacts = models.ManyToManyField(
         Contact, through="JobContact", related_name="jobs", blank=True
     )
@@ -90,44 +83,43 @@ class Job(models.Model):
     def __str__(self):
         return f"{self.title} at {self.company}"
 
+    @property
+    def status(self):
+        prefetched = getattr(self, "_prefetched_objects_cache", {}).get(
+            "status_history"
+        )
+        if prefetched is not None:
+            return prefetched[0].to_status if prefetched else self.Status.FOUND
+        return (
+            self.status_history.values_list("to_status", flat=True).first()
+            or self.Status.FOUND
+        )
+
     def save(self, *args, **kwargs):
-        update_fields = kwargs.get("update_fields")
-        tracks_status = update_fields is None or "status" in update_fields
-        applied_statuses = {
-            self.Status.APPLIED,
-            self.Status.ACKNOWLEDGED,
-            self.Status.RECRUITER_SCREEN,
-            self.Status.INTERVIEW,
-            self.Status.OFFER,
-            self.Status.DENIED,
-        }
-        if (
-            tracks_status
-            and self.status in applied_statuses
-            and self.applied_on is None
-        ):
-            self.applied_on = timezone.localdate()
-            if update_fields is not None:
-                kwargs["update_fields"] = set(update_fields) | {"applied_on"}
-
-        previous_status = None
-        if self.pk and tracks_status:
-            previous_status = (
-                type(self)
-                .objects.filter(pk=self.pk)
-                .values_list("status", flat=True)
-                .first()
-            )
-
+        is_new = self._state.adding
         with transaction.atomic():
             super().save(*args, **kwargs)
-            current_status = self.status if tracks_status else previous_status
-            if previous_status != current_status:
+            if is_new:
                 JobStatusHistory.objects.create(
                     job=self,
-                    from_status=previous_status or "",
-                    to_status=current_status,
+                    from_status="",
+                    to_status=self.Status.FOUND,
                 )
+
+    def record_status(self, status):
+        if status not in self.Status.values:
+            raise ValidationError({"to_status": "Choose a valid job status."})
+        with transaction.atomic():
+            previous_status = self.status
+            if previous_status == status:
+                return
+            JobStatusHistory.objects.create(
+                job=self,
+                from_status=previous_status,
+                to_status=status,
+            )
+            getattr(self, "_prefetched_objects_cache", {}).pop("status_history", None)
+            self.save(update_fields=["updated_at"])
 
 
 class JobStatusHistory(models.Model):
@@ -188,27 +180,23 @@ class Interaction(models.Model):
         EMAIL = "email", "Email"
         LINKEDIN = "linkedin", "LinkedIn message"
         PHONE = "phone", "Phone call"
+        ACKNOWLEDGEMENT = "acknowledgement", "Acknowledgement"
         INTERVIEW = "interview", "Interview"
         OTHER = "other", "Other"
 
-    class Direction(models.TextChoices):
-        OUTBOUND = "outbound", "Outbound"
-        INBOUND = "inbound", "Inbound"
-
     contact = models.ForeignKey(
-        Contact, on_delete=models.CASCADE, related_name="interactions"
-    )
-    job = models.ForeignKey(
-        Job,
+        Contact,
         on_delete=models.SET_NULL,
         related_name="interactions",
         null=True,
         blank=True,
     )
-    kind = models.CharField(max_length=16, choices=Kind.choices)
-    direction = models.CharField(
-        max_length=12, choices=Direction.choices, default=Direction.OUTBOUND
+    job = models.ForeignKey(
+        Job,
+        on_delete=models.CASCADE,
+        related_name="interactions",
     )
+    kind = models.CharField(max_length=16, choices=Kind.choices)
     occurred_at = models.DateTimeField(default=timezone.now)
     notes = models.TextField(blank=True)
 
@@ -255,7 +243,9 @@ class Interaction(models.Model):
             )
 
     def __str__(self):
-        return f"{self.get_kind_display()} with {self.contact}"
+        if self.contact_id:
+            return f"{self.get_kind_display()} with {self.contact}"
+        return f"{self.get_kind_display()} for {self.job}"
 
 
 def validate_pdf_upload(upload):

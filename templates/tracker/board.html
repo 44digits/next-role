@@ -19,7 +19,6 @@
             <p class="muted"><a href="{% url 'company_detail' job.company_id %}">{{ job.company.name }}</a></p>
             {% if job.location %}<p>{{ job.location }}</p>{% endif %}
             {% if job.salary_range %}<p>{{ job.salary_range }}</p>{% endif %}
-            {% if job.applied_on %}<p class="muted">Applied {{ job.applied_on }}</p>{% endif %}
             {% if job.contacts.all %}
               <p class="muted">Contacts:
                 {% for contact in job.contacts.all %}

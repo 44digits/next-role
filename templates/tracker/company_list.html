@@ -10,12 +10,12 @@
     {% if companies %}
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Company</th><th>Website</th><th>Jobs</th></tr></thead>
+          <thead><tr><th>Company</th><th>Links</th><th>Jobs</th></tr></thead>
           <tbody>
             {% for company in companies %}
               <tr>
                 <td><a href="{% url 'company_detail' company.pk %}">{{ company.name }}</a></td>
-                <td>{% if company.website %}<a href="{{ company.website }}" target="_blank" rel="noopener noreferrer">{{ company.website }}</a>{% else %}—{% endif %}</td>
+                <td>{{ company.link_count }}</td>
                 <td>{{ company.job_count }}</td>
               </tr>
             {% endfor %}

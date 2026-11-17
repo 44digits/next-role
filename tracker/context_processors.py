@@ -10,9 +10,5 @@ def quick_interaction(request):
     form = InteractionForm(
         initial={"occurred_at": timezone.localtime().strftime("%Y-%m-%dT%H:%M")}
     )
-    form.fields["job"].queryset = (
-        Job.objects.filter(contacts__isnull=False)
-        .distinct()
-        .prefetch_related("contacts")
-    )
+    form.fields["job"].queryset = Job.objects.all().prefetch_related("contacts")
     return {"quick_interaction_form": form}

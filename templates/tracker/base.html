@@ -43,16 +43,14 @@
           <div class="form-grid">
             <p><label for="{{ quick_interaction_form.contact.id_for_label }}">Contact</label>{{ quick_interaction_form.contact }}</p>
             <p>
-              <label for="{{ quick_interaction_form.job.id_for_label }}">Related job</label>
-              <select name="job" id="{{ quick_interaction_form.job.id_for_label }}" class="input" data-dependent-job>
-                <option value="">No related job</option>
+              <label for="{{ quick_interaction_form.job.id_for_label }}">Job</label>
+              <select name="job" id="{{ quick_interaction_form.job.id_for_label }}" class="input" data-dependent-job required>
                 {% for job in quick_interaction_form.fields.job.queryset %}
                   <option value="{{ job.pk }}" data-contact-ids="{% for contact in job.contacts.all %}{{ contact.pk }}{% if not forloop.last %},{% endif %}{% endfor %}">{{ job.title }} — {{ job.company.name }}</option>
                 {% endfor %}
               </select>
             </p>
             <p><label for="{{ quick_interaction_form.kind.id_for_label }}">Type</label>{{ quick_interaction_form.kind }}</p>
-            <p><label for="{{ quick_interaction_form.direction.id_for_label }}">Direction</label>{{ quick_interaction_form.direction }}</p>
             <p><label for="{{ quick_interaction_form.occurred_at.id_for_label }}">Date and time</label>{{ quick_interaction_form.occurred_at }}</p>
             <p class="full-width"><label for="{{ quick_interaction_form.notes.id_for_label }}">Notes</label>{{ quick_interaction_form.notes }}</p>
           </div>

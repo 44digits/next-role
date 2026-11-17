@@ -9,13 +9,13 @@ application stages, related documents, and application/outreach reporting.
   auditable status history and a combined activity feed.
 - Company records and links, jobs with posting and related links, and contacts
   associated with companies and optionally with multiple jobs.
-- A filterable contact directory and global quick logger for outbound/inbound
-  email, LinkedIn messages, phone calls, interviews, and other interactions.
+- A filterable contact directory and global quick logger for email, LinkedIn
+  messages, phone calls, acknowledgements, interviews, and other interactions.
 - Multi-file PDF uploads attached to jobs (job descriptions, resumes, applications,
   cover letters, or other documents), limited to 10 MB per file. Extracted PDF
   text is searchable and documents can be previewed in the browser.
 - Reports for applications applied within a date range, grouped by current status,
-  pipeline conversion, weekly outbound activity by type, and contacts not
+  pipeline conversion, weekly interaction activity by type, and contacts not
   contacted within 30, 60, or 180 days.
 
 ## Local development
@@ -94,10 +94,12 @@ HTTPS-capable reverse proxy or cloud ingress.
 There is no public registration flow. Create the initial user with Django's
 `createsuperuser` command. All tracker pages require authentication.
 
-Each job belongs to a company and may have zero or more contacts from that
-company. A contact may be related to multiple jobs. Status transitions are
-preserved in history. Interactions belong to a contact and can optionally be
-linked to a job, provided that contact is associated with that job. Each
-contact's last-contacted date is maintained from its interaction history.
-Uploaded PDFs and extracted text are stored separately so a future
-object-storage backend can replace local files.
+Each job belongs to a company, has one or more related links, and may have zero
+or more contacts from that company. Each company has one or more related links.
+A contact may be related to multiple jobs. Job status is stored only in status
+history, which also supplies found/applied dates for reporting. Every interaction
+belongs to one job and may optionally involve a contact; if a contact is chosen,
+it must be associated with that job. Interactions do not track direction.
+Each contact's last-contacted date is maintained from its interaction history.
+Uploaded PDFs and extracted text are stored separately so a future object-storage
+backend can replace local files.
