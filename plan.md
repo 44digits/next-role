@@ -121,6 +121,35 @@ erDiagram
   - Provide a detailed job view with company and position details, attached documents with PDF preview, associated contacts, and a chronological feed combining status changes and interactions.
   - Provide a confirmed delete action on the job detail page that removes the job and its related records and uploaded PDF files.
   - Do not store job location, description, or salary range; store job and company URLs as related links rather than columns on their parent records.
+- **Scraper integration**
+  - Provide an authenticated REST API for the companion application to submit job postings as new jobs in the Job found stage, resolving an existing company or creating it when needed.
+  - Authenticate with Django REST Framework token authentication using a dedicated non-staff service account limited to the job-ingestion endpoint. Send credentials in the `Authorization: Token <service-token>` header over HTTPS; store the token in deployment secrets and revoke or rotate it manually because tokens do not expire automatically.
+  - Compare submitted job posting URLs with existing job posting URLs; an exact match is an existing job, while a different URL is accepted without additional duplicate checks.
+  - Example JSON payload:
+
+    ```json
+    {
+      "company": {
+        "name": "Acme",
+        "links": [
+          {
+            "label": "Website",
+            "url": "https://acme.example"
+          }
+        ]
+      },
+      "job": {
+        "title": "Backend Engineer",
+        "links": [
+          {
+            "label": "Job posting",
+            "url": "https://careers.acme.example/jobs/123"
+          }
+        ],
+        "notes": ""
+      }
+    }
+    ```
 - **Companies, contacts, and interactions**
   - Model companies, jobs, contacts, and interactions so each job can have zero or more contacts; allow contacts to be associated with multiple jobs at the same company.
   - Provide a filterable contact directory by company, last-contact date, and role/title. Automatically maintain each contact's last-contacted date when an interaction is recorded.
@@ -145,7 +174,7 @@ erDiagram
 - **Core workflows**
 
    <ol start="3">
-   <li>Implement the job, company, and contact workflows, including a drag-and-drop status board, detailed job activity feed, and filterable contact directory.</li>
+   <li>Implement the job, company, and contact workflows, including a drag-and-drop status board, detailed job activity feed, filterable contact directory, and authenticated REST ingestion for the companion scraper.</li>
    <li>Implement global quick interaction logging.</li>
    </ol>
 
