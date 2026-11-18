@@ -1,6 +1,6 @@
 import json
 import tempfile
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.contrib.auth.models import Permission, User
 from django.core.exceptions import ValidationError
@@ -168,6 +168,23 @@ class TrackerViewTests(TestCase):
         self.job.refresh_from_db()
         self.assertEqual(self.job.status, Job.Status.APPLIED)
         self.assertEqual(self.job.status_history.count(), 2)
+
+    def test_board_card_shows_most_recent_activity_date(self):
+        JobStatusHistory.objects.filter(job=self.job).update(
+            changed_at=timezone.make_aware(datetime(2026, 3, 1, 12))
+        )
+        response = self.client.get(reverse("board"))
+        self.assertContains(response, "Last activity: <time")
+        self.assertContains(response, "2026 Mar 01")
+
+        Interaction.objects.create(
+            job=self.job,
+            kind=Interaction.Kind.EMAIL,
+            occurred_at=timezone.make_aware(datetime(2026, 4, 15, 12)),
+        )
+        response = self.client.get(reverse("board"))
+        self.assertContains(response, "2026 Apr 15")
+        self.assertNotContains(response, "2026 Mar 01")
 
     def test_job_detail_can_delete_job_and_attached_data(self):
         contact = Contact.objects.create(

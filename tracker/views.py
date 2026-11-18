@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, OuterRef, Q, Subquery
+from django.db.models import Count, Max, OuterRef, Q, Subquery
 from django.db.models.functions import TruncWeek
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -37,11 +37,21 @@ from .models import (
 
 @login_required
 def board(request):
-    jobs = Job.objects.select_related("company").prefetch_related(
-        "contacts", "status_history"
+    jobs = (
+        Job.objects.select_related("company")
+        .prefetch_related("contacts", "status_history")
+        .annotate(latest_interaction_at=Max("interactions__occurred_at"))
     )
     jobs_by_status = {status: [] for status, _ in Job.Status.choices}
     for job in jobs:
+        # Same events as the job detail activity timeline: status changes and
+        # interactions. status_history is prefetched newest-first.
+        history = job.status_history.all()
+        candidates = [
+            history[0].changed_at if history else job.created_at,
+            job.latest_interaction_at,
+        ]
+        job.last_activity_at = max(c for c in candidates if c is not None)
         jobs_by_status[job.status].append(job)
 
     columns = [
