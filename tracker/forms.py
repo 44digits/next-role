@@ -9,6 +9,7 @@ from .models import (
     Job,
     JobDocument,
     JobLink,
+    sanitize_extracted_text,
 )
 
 
@@ -249,6 +250,7 @@ class JobDocumentUploadForm(forms.Form):
                     text = "\n".join(
                         page.extract_text() or "" for page in pdf.pages
                     ).strip()
+                    text = sanitize_extracted_text(text)
             except (
                 PDFEncryptionError,
                 PDFPasswordIncorrect,

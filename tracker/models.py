@@ -271,6 +271,10 @@ def validate_pdf_upload(upload):
         raise ValidationError("The uploaded file does not appear to be a PDF.")
 
 
+def sanitize_extracted_text(text):
+    return (text or "").replace("\x00", "")
+
+
 def job_document_upload_path(instance, filename):
     return f"job-documents/{instance.job_id}/{uuid4().hex}.pdf"
 
@@ -295,6 +299,10 @@ class JobDocument(models.Model):
 
     class Meta:
         ordering = ["-uploaded_at"]
+
+    def save(self, *args, **kwargs):
+        self.extracted_text = sanitize_extracted_text(self.extracted_text)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.get_kind_display()} for {self.job}"

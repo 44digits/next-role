@@ -528,6 +528,19 @@ class TrackerViewTests(TestCase):
                 )
                 self.assertIn("sample document", document.extracted_text)
 
+    def test_document_extracted_text_removes_null_bytes(self):
+        document = JobDocument.objects.create(
+            job=self.job,
+            kind=JobDocument.Kind.RESUME,
+            original_name="resume.pdf",
+            extracted_text="before\x00after",
+            file="resume.pdf",
+        )
+
+        document.refresh_from_db()
+        self.assertEqual(document.extracted_text, "beforeafter")
+        self.assertNotIn("\x00", document.extracted_text)
+
     def test_multiple_documents_are_searchable_and_previewable(self):
         with tempfile.TemporaryDirectory() as media_root:
             with override_settings(MEDIA_ROOT=media_root):
