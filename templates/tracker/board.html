@@ -17,7 +17,7 @@
           <article class="job-card" draggable="true" data-job-card data-job-id="{{ job.pk }}" aria-label="Drag {{ job.title }} to change status">
             <h3><a href="{% url 'job_detail' job.pk %}">{{ job.title }}</a></h3>
             <p class="muted"><a href="{% url 'company_detail' job.company_id %}">{{ job.company.name }}</a></p>
-            <p class="muted">Last activity: <time datetime="{{ job.last_activity_at|date:'c' }}">{{ job.last_activity_at|date:"Y M d" }}</time></p>
+            <p class="muted"><time datetime="{{ job.last_activity_at|date:'c' }}">{{ job.last_activity_at|date:"Y M d" }}</time></p>
             {% if job.contacts.all %}
               <p class="muted">Contacts:
                 {% for contact in job.contacts.all %}

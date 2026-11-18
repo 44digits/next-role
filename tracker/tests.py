@@ -174,7 +174,7 @@ class TrackerViewTests(TestCase):
             changed_at=timezone.make_aware(datetime(2026, 3, 1, 12))
         )
         response = self.client.get(reverse("board"))
-        self.assertContains(response, "Last activity: <time")
+        self.assertContains(response, "<time datetime=")
         self.assertContains(response, "2026 Mar 01")
 
         Interaction.objects.create(
