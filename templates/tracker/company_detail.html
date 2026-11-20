@@ -6,10 +6,13 @@
     <div>
       <p class="eyebrow">Company</p>
       <h1>{{ company.name }}</h1>
-      {% if company.description %}<p>{{ company.description|linebreaksbr }}</p>{% endif %}
     </div>
     <a class="button" href="{% url 'company_update' company.pk %}">Edit company</a>
   </div>
+  <section class="panel">
+    <h2>Notes</h2>
+    <p>{{ company.notes|linebreaksbr|default:"—" }}</p>
+  </section>
   <div class="content-grid">
     <section class="panel">
       <div class="section-heading">

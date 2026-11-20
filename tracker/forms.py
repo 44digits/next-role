@@ -31,8 +31,8 @@ class CompanyForm(StyledModelForm):
 
     class Meta:
         model = Company
-        fields = ["name", "description"]
-        widgets = {"description": forms.Textarea(attrs={"rows": 4})}
+        fields = ["name", "notes"]
+        widgets = {"notes": forms.Textarea(attrs={"rows": 4})}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

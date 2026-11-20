@@ -297,7 +297,7 @@ class TrackerViewTests(TestCase):
             {
                 "name": "New Company",
                 "company_url": "https://example.com/company",
-                "description": "",
+                "notes": "",
             },
         )
 
@@ -305,6 +305,15 @@ class TrackerViewTests(TestCase):
         self.assertRedirects(response, reverse("company_detail", args=[company.pk]))
         self.assertEqual(company.links.count(), 1)
         self.assertEqual(company.links.get().url, "https://example.com/company")
+
+    def test_company_detail_shows_notes_panel(self):
+        self.company.notes = "Met the team\nat a meetup"
+        self.company.save()
+
+        response = self.client.get(reverse("company_detail", args=[self.company.pk]))
+
+        self.assertContains(response, "<h2>Notes</h2>", html=True)
+        self.assertContains(response, "Met the team<br>at a meetup")
 
     def test_company_must_retain_at_least_one_link(self):
         link = CompanyLink.objects.create(
