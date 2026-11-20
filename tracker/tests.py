@@ -186,6 +186,34 @@ class TrackerViewTests(TestCase):
         self.assertContains(response, "2026 Apr 15")
         self.assertNotContains(response, "2026 Mar 01")
 
+    def test_board_orders_cards_by_most_recent_activity(self):
+        def at(month, day):
+            return timezone.make_aware(datetime(2026, month, day, 12))
+
+        older = self.create_job("Older status", "https://example.com/jobs/2")
+        newer = self.create_job("Newer status", "https://example.com/jobs/3")
+        JobStatusHistory.objects.filter(job=self.job).update(changed_at=at(1, 1))
+        JobStatusHistory.objects.filter(job=older).update(changed_at=at(2, 1))
+        JobStatusHistory.objects.filter(job=newer).update(changed_at=at(3, 1))
+        # A recent interaction moves the oldest job to the top.
+        Interaction.objects.create(
+            job=self.job, kind=Interaction.Kind.EMAIL, occurred_at=at(4, 1)
+        )
+        # Saving the job row bumps updated_at but is not visible activity.
+        older.notes = "Edited"
+        older.save()
+
+        response = self.client.get(reverse("board"))
+        found_column = next(
+            column
+            for column in response.context["columns"]
+            if column["key"] == Job.Status.FOUND
+        )
+        self.assertEqual(
+            [job.title for job in found_column["jobs"]],
+            ["Engineer", "Newer status", "Older status"],
+        )
+
     def test_job_detail_can_delete_job_and_attached_data(self):
         contact = Contact.objects.create(
             company=self.company, first_name="Casey", last_name="Recruiter"

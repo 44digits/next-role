@@ -54,6 +54,11 @@ def board(request):
         job.last_activity_at = max(c for c in candidates if c is not None)
         jobs_by_status[job.status].append(job)
 
+    # Newest activity first, matching the date shown on each card. The sort is
+    # stable, so ties keep the model's default ordering.
+    for column_jobs in jobs_by_status.values():
+        column_jobs.sort(key=lambda job: job.last_activity_at, reverse=True)
+
     columns = [
         {"key": status, "label": label, "jobs": jobs_by_status[status]}
         for status, label in Job.Status.choices
